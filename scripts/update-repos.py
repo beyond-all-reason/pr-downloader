@@ -5,9 +5,9 @@
 import gzip
 import os
 
-wwwroot = "/home/packages/www/repos.springrts.com"
+wwwroot = "/rapid-packages"
 prefix = "http://repos.springrts.com/"
-streamer = "/home/packages/bin/Streamer"
+streamer = "/usr/local/bin/Streamer"
 repos = {
 	"main": "http://packages.springrts.com"
 }

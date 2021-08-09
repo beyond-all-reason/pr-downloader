@@ -1,0 +1,14 @@
+version: "3.9"
+services:
+  rapid:
+    build:
+      context: .
+      target: scratch
+      args:
+        RAPID_GIT: /rapid-git
+        RAPID_PACKAGES: /rapid-packages
+        RAPID_GIT_REPOS: https://github.com/springraaar/metal_factions
+        # https://github.com/beyond-all-reason/Beyond-All-Reason,
+    command: bash
+    #    ports:
+    #      - "80:80"

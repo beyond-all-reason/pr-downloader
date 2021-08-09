@@ -10,14 +10,12 @@ if [ $LOAD -ge $MAXLOAD ]; then
 	exit
 fi
 
-
 # checks all 
 MODROOT=/
 MODINFO=modinfo.lua
-PACKAGES=/home/packages/www/repos.springrts.com
-
-REPOS=$(find /home/packages/git -maxdepth 1 -mindepth 1 -type d)
-
+PACKAGES="${RAPID_PACKAGES:-/home/packages/www/repos.springrts.com}"
+GIT_ROOT="${RAPID_GIT:-/home/packages/git}"
+REPOS=$(find $GIT_ROOT -maxdepth 1 -mindepth 1 -type d)
 
 for REPO in $REPOS; do
 	cd $REPO
@@ -34,11 +32,10 @@ for REPO in $REPOS; do
 			git reset --hard origin/master
 			git submodule sync --recursive
 			git submodule update --recursive --remote --init
-			~/bin/BuildGit "$REPO" "$MODROOT" "$MODINFO" "$PACKAGES/$TAG" "$REMOTE" "$TAG"
+			BuildGit "$REPO" "$MODROOT" "$MODINFO" "$PACKAGES/$TAG" "$REMOTE" "$TAG"
 			echo Finished: $(date)
 			) &> $PACKAGES/$TAG/log.txt
 			git log -1 --pretty=format:"%an commited %h: %s" | ~/bin/loggit.py "$TAG"
 		fi
 	fi
 done
-
