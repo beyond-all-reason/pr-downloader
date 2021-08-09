@@ -1,0 +1,53 @@
+version: "3.9"
+services:
+  db:
+    image: mysql:8
+    command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: 1
+      MYSQL_ROOT_PASSWORD: upq
+      MYSQL_DATABASE: upq
+      MYSQL_USER: upq
+      MYSQL_PASSWORD: upq
+    ports:
+      - "9906:3306"
+  rapid-build:
+    build:
+      context: .
+      target: build
+
+  rapid:
+    build:
+      context: .
+      target: scratch
+      args:
+        RAPID_GIT: /rapid-git
+        RAPID_FILES: /rapid-files
+        RAPID_PACKAGES: /rapid-packages
+        RAPID_GIT_REPOS: https://github.com/springraaar/metal_factions
+        REPOS_HOSTNAME: repos.localhost
+        API_HOSTNAME: api.localhost
+        UPQ_JOBS: /upq-jobs
+        UPQ_CREDENTIALS: bad,osu;behe,rith
+        # https://github.com/beyond-all-reason/Beyond-All-Reason,
+    #environment:
+      #SPRING_DATADIR: /spring
+      #SPRING_WRITEDIR: /spring
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - rapid_git:/rapid-git
+      - rapid_files:/rapid-files
+      - rapid_packages:/rapid-packages
+    depends_on:
+      - db
+    extra_hosts:
+      - "api.localhost:127.0.0.1"
+      - "repos.localhost:127.0.0.1"
+
+volumes:
+  rapid_git:
+  rapid_files:
+  rapid_packages:

@@ -12,7 +12,7 @@
 #define REPO_MASTER_RECHECK_TIME \
 	86400 // how long to cache the repo-master file in secs without rechecking
 #define REPO_RECHECK_TIME 0
-#define REPO_MASTER "https://repos.springrts.com/repos.gz"
+#define REPO_MASTER "http://repos.localhost/repos.gz"
 
 class CSdp;
 class CHttpDownload;
