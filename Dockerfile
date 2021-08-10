@@ -52,6 +52,3 @@ RUN rapid-update-repos.py
 
 COPY conf/apache.conf /usr/local/apache2/conf/rapid.conf
 RUN echo 'Include conf/rapid.conf' >> /usr/local/apache2/conf/httpd.conf
-
-#ENTRYPOINT ["apache2"]
-#CMD ["-k start"]
