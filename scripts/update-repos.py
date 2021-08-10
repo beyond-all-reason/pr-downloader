@@ -6,10 +6,10 @@ import gzip
 import os
 
 wwwroot = "/rapid-packages"
-prefix = "http://repos.springrts.com/"
+prefix = "http://localhost/"
 streamer = "/usr/local/bin/Streamer"
 repos = {
-	"main": "http://packages.springrts.com"
+	"main": "http://localhost"
 }
 
 assert(os.path.isfile(streamer))
@@ -77,7 +77,3 @@ if not ReposEqual(repos, currentrepos):
 	WriteRepos(reposgz, repos)
 
 assert(ReposEqual(ParseRepos(reposgz), repos))
-
-
-
-

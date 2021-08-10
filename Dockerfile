@@ -47,8 +47,8 @@ RUN mkdir -p $RAPID_GIT $RAPID_PACKAGES
 RUN touch "$RAPID_PACKAGES/repos" && gzip "$RAPID_PACKAGES/repos"
 
 RUN rapid-init.sh
-RUN rapid-update-git.sh
 RUN rapid-update-repos.py
+RUN rapid-update-git.sh
 
 COPY conf/apache.conf /usr/local/apache2/conf/rapid.conf
 RUN echo 'Include conf/rapid.conf' >> /usr/local/apache2/conf/httpd.conf
