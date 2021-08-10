@@ -10,5 +10,9 @@ services:
         RAPID_GIT_REPOS: https://github.com/springraaar/metal_factions
         # https://github.com/beyond-all-reason/Beyond-All-Reason,
     command: bash
-    #    ports:
-    #      - "80:80"
+    ports:
+      - "80:80"
+    volumes:
+      - rapid_git:/rapid-git
+volumes:
+  rapid_git:
