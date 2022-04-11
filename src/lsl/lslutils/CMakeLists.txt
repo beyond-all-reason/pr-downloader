@@ -2,12 +2,12 @@
 SET(libSpringLobbyUtilsSrc
 	"${CMAKE_CURRENT_SOURCE_DIR}/misc.cpp"
 	"${CMAKE_CURRENT_SOURCE_DIR}/config.cpp"
-	"${CMAKE_CURRENT_SOURCE_DIR}/thread.cpp" 
+	"${CMAKE_CURRENT_SOURCE_DIR}/thread.cpp"
 	"${CMAKE_CURRENT_SOURCE_DIR}/net.cpp"
 	"${CMAKE_CURRENT_SOURCE_DIR}/globalsmanager.cpp"
 	"${CMAKE_CURRENT_SOURCE_DIR}/conversion.cpp"
 	)
-	
+
 FILE( GLOB RECURSE libSpringLobbyUtilsHeader "${CMAKE_CURRENT_SOURCE_DIR}/*.h" )
 
 #grep -lR cc\"$ src/* | sed -e "s/\.h/\.cc/g"
@@ -24,7 +24,7 @@ if(WIN32)
 			-DBOOST_THREAD_USE_LIB
 			-DMINGW_HAS_SECURE_API=1
 		)
-endif()
+endif ()
 ADD_LIBRARY(lsl-utils STATIC ${libSpringLobbyHeader} ${libSpringLobbyUtilsSrc} )
 TARGET_LINK_LIBRARIES(lsl-utils ${Boost_THREAD_LIBRARY} pr-md5)
 target_include_directories(lsl-utils
