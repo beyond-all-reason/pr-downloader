@@ -73,6 +73,8 @@ bool CHttpDownloader::DownloadUrl(const std::string& url, std::string& res)
 	curl_easy_setopt(curlw.GetHandle(), CURLOPT_PROGRESSDATA, &d);
 	curl_easy_setopt(curlw.GetHandle(), CURLOPT_PROGRESSFUNCTION, progress_func);
 	curl_easy_setopt(curlw.GetHandle(), CURLOPT_NOPROGRESS, 0L);
+	curl_easy_setopt(curlw.GetHandle(), CURLOPT_VERBOSE, 1L);
+	
 	const CURLcode curlres = curl_easy_perform(curlw.GetHandle());
 
 	delete d.download;
@@ -365,6 +367,7 @@ bool CHttpDownloader::setupDownload(DownloadData* piece)
 	curl_easy_setopt(curle, CURLOPT_PROGRESSDATA, piece);
 	curl_easy_setopt(curle, CURLOPT_PROGRESSFUNCTION, progress_func);
 	curl_easy_setopt(curle, CURLOPT_URL, CurlWrapper::escapeUrl(piece->mirror->url).c_str());
+	curl_easy_setopt(curle, CURLOPT_VERBOSE, 1L);
 
 	curl_easy_setopt(curle, CURLOPT_SSL_VERIFYPEER, piece->download->validateTLS);
 	LOG_DEBUG("Validating TLS: %d", piece->download->validateTLS);
