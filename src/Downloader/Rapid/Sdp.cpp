@@ -356,6 +356,7 @@ bool CSdp::downloadStream()
 	curl_easy_setopt(curlw.GetHandle(), CURLOPT_NOPROGRESS, 0L);
 	curl_easy_setopt(curlw.GetHandle(), CURLOPT_PROGRESSFUNCTION, progress_func);
 	curl_easy_setopt(curlw.GetHandle(), CURLOPT_PROGRESSDATA, this);
+	curl_easy_setopt(curlw.GetHandle(), CURLOPT_SSL_OPTIONS, CURLSSLOPT_NO_REVOKE);
 
 	res = curl_easy_perform(curlw.GetHandle());
 
