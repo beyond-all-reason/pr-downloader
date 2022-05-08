@@ -119,11 +119,6 @@ bool CSdp::download(IDownload* dl)
 	}
 	LOG_DEBUG("Sucessfully downloaded %d files: %s %s", count,
 		  shortname.c_str(), name.c_str());
-
-	if (!fileSystem->validateSDP(sdpPath)) { //FIXME: in this call only the downloaded files should be checked
-		LOG_ERROR("Validation failed");
-		return false;
-	}
 	downloaded = true;
 	dl->state = IDownload::STATE_FINISHED;
 	return true;
