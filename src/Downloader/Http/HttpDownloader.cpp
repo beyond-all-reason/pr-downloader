@@ -646,10 +646,10 @@ bool CHttpDownloader::download(std::list<IDownload*>& download,
 		FD_ZERO(&eSet);
 		int count = 0;
 		timeval t;
-		t.tv_sec = 1;
-		t.tv_usec = 0;
+		t.tv_sec = 0;
+		t.tv_usec = 10000;
 		curl_multi_fdset(curlm, &rSet, &wSet, &eSet, &count);
-		// sleep for one sec / until something happened
+		// sleep for 10ms / until something happened
 		select(count + 1, &rSet, &wSet, &eSet, &t);
 	}
 

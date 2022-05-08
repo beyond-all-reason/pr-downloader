@@ -106,23 +106,19 @@ bool CSdp::download(IDownload* dl)
 	}
 	LOG_DEBUG("%d/%d need to download %d files", i, (int)files.size(),
 		  count);
-
-	const std::string root = fileSystem->getSpringDir() + PATH_DELIMITER + "pool" + PATH_DELIMITER;
-	if (!createPoolDirs(root)) {
-		LOG_ERROR("Creating pool directories failed");
-		return false;
-	}
-	if (!downloadStream()) {
-		LOG_ERROR("Couldn't download files for %s", md5.c_str());
-		fileSystem->removeFile(sdpPath);
-		return false;
-	}
-	LOG_DEBUG("Sucessfully downloaded %d files: %s %s", count,
-		  shortname.c_str(), name.c_str());
-
-	if (!fileSystem->validateSDP(sdpPath)) { //FIXME: in this call only the downloaded files should be checked
-		LOG_ERROR("Validation failed");
-		return false;
+	if (count > 0) {
+		const std::string root = fileSystem->getSpringDir() + PATH_DELIMITER + "pool" + PATH_DELIMITER;
+		if (!createPoolDirs(root)) {
+			LOG_ERROR("Creating pool directories failed");
+			return false;
+		}
+		if (!downloadStream()) {
+			LOG_ERROR("Couldn't download files for %s", md5.c_str());
+			fileSystem->removeFile(sdpPath);
+			return false;
+		}
+		LOG_DEBUG("Sucessfully downloaded %d files: %s %s", count,
+			  shortname.c_str(), name.c_str());
 	}
 	downloaded = true;
 	dl->state = IDownload::STATE_FINISHED;
