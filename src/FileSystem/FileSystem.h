@@ -105,7 +105,7 @@ public:
 	/**
   *	returns full filename for pool file from md5
   */
-	std::string getPoolFilename(const std::string& md5str) const;
+	std::string getPoolFilename(const std::string& md5str, const std::string& pathBase = "") const;
 
 	/**
   *	tries to rename a file, copies if rename fails

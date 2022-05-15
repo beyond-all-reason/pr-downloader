@@ -4,8 +4,9 @@
 #include <string.h>
 #include <stdio.h>
 #include <curl/curl.h>
-#include <stdlib.h>
+#include <cstdlib>
 #include <errno.h>
+#include <unordered_set>
 
 #include "Sdp.h"
 #include "RapidDownloader.h"
@@ -100,7 +101,7 @@ bool CSdp::download(IDownload* dl)
 		} else {
 			filedata.download = false;
 		}
-		if (i % 30 == 0) {
+		if (i % 500 == 0) {
 			LOG_DEBUG("%d/%d checked", i, (int)files.size());
 		}
 	}
@@ -112,7 +113,14 @@ bool CSdp::download(IDownload* dl)
 			LOG_ERROR("Creating pool directories failed");
 			return false;
 		}
-		if (!downloadStream()) {
+
+		bool res;
+		if (std::string(std::getenv("PRD_RAPID_USE_HTTP")) == "true") {
+			res = downloadHTTP();
+		} else {
+			res = downloadStream();
+		}
+		if (!res) {
 			LOG_ERROR("Couldn't download files for %s", md5.c_str());
 			fileSystem->removeFile(sdpPath);
 			return false;
@@ -365,5 +373,33 @@ bool CSdp::downloadStream()
 	}
 
 
+	return true;
+}
+
+bool CSdp::downloadHTTP()
+{
+	// TODO(p2004a): Add verification of downloaded files.
+	std::unordered_set<std::string> md5_in_queue;
+	std::list<IDownload*> dls;
+	for (FileData& fd: files) {
+		if (!fd.download) continue;
+		HashMD5 fileMd5;
+		fileMd5.Set(fd.md5, sizeof(fd.md5));
+		// Multiple files in sdp can map to a single file in the pool,
+		// we need to skip duplicates.
+		if (md5_in_queue.find(fileMd5.toString()) != md5_in_queue.end()) {
+			continue;
+		}
+		md5_in_queue.insert(fileMd5.toString());
+		std::string url = fileSystem->getPoolFilename(fileMd5.toString(), baseUrl);
+		std::string filename = fileSystem->getPoolFilename(fileMd5.toString());
+		IDownload* dl = new IDownload(filename);
+		dl->addMirror(url);
+		dl->approx_size = fd.size;
+		dls.push_back(dl);
+	}
+	bool ok = httpDownload->download(dls, 50);
+	IDownloader::freeResult(dls);
+	return ok;
 	return true;
 }

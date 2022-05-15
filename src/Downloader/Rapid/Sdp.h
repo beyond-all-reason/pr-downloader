@@ -103,6 +103,7 @@ private:
   ......zL..c`..`d.....K.n/....
   */
 	bool downloadStream();
+	bool downloadHTTP();
 
 	std::string name;
 	std::string md5;
