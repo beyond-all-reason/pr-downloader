@@ -21,13 +21,6 @@ IDownload::IDownload(const std::string& name, const std::string& origin_name,
 
 IDownload::~IDownload()
 {
-	for (unsigned i = 0; i < pieces.size(); i++) {
-		delete pieces[i].sha;
-	}
-	pieces.clear();
-	for (unsigned i = 0; i < mirrors.size(); i++) {
-		delete mirrors[i];
-	}
 	if (hash != nullptr)
 		delete hash;
 	hash = nullptr;
@@ -45,7 +38,7 @@ std::string IDownload::getUrl() const
 Mirror* IDownload::getMirror(unsigned i) const
 {
 	assert(i < mirrors.size());
-	return mirrors[i];
+	return mirrors[i].get();
 }
 
 Mirror* IDownload::getFastestMirror()
@@ -58,7 +51,7 @@ Mirror* IDownload::getFastestMirror()
 			mirrors[i]->status =
 			    Mirror::STATUS_OK; // set status to ok, to not use it again
 			LOG_DEBUG("Mirror %d: status unknown", i);
-			return mirrors[i];
+			return mirrors[i].get();
 		}
 		if ((mirrors[i]->status != Mirror::STATUS_BROKEN) &&
 		    (mirrors[i]->maxspeed > max)) {
@@ -74,7 +67,7 @@ Mirror* IDownload::getFastestMirror()
 	}
 	LOG_DEBUG("Fastest mirror %d: (%d): %s", pos, mirrors[pos]->maxspeed,
 		  mirrors[pos]->url.c_str());
-	return mirrors[pos];
+	return mirrors[pos].get();
 }
 
 int IDownload::getMirrorCount() const
@@ -88,8 +81,7 @@ bool IDownload::addMirror(const std::string& url)
 	if (origin_name.empty()) {
 		origin_name = url;
 	}
-	Mirror* mirror = new Mirror(url);
-	this->mirrors.push_back(mirror);
+	this->mirrors.emplace_back(new Mirror(url));
 	return true;
 }
 
@@ -104,4 +96,9 @@ unsigned int IDownload::getProgress() const
 	if (dltype == TYP_RAPID || dltype == TYP_HTTP)
 		return progress;
 	return 0;
+}
+
+void IDownload::updateProgress(unsigned int new_progress)
+{
+	progress = new_progress;
 }

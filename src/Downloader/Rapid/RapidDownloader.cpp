@@ -228,9 +228,8 @@ bool CRapidDownloader::updateRepos(const std::string& searchstr)
 		if (tag != "" && repo.getShortName() != tag) {
 			continue;
 		}
-		IDownload* dl = new IDownload();
-		if (!repo.getDownload(*dl)) {
-			delete dl;
+		IDownload* dl = repo.getDownload();
+		if (dl == nullptr) {
 			continue;
 		}
 		usedrepos.push_back(&repo);

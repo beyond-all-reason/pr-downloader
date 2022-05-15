@@ -303,7 +303,7 @@ static int progress_func(CSdp& sdp, double TotalToDownload,
 	for (auto it : sdp.m_download->map_rapid_progress) {
 		total += it.second;
 	}
-	sdp.m_download->progress = total;
+	sdp.m_download->updateProgress(total);
 	if (TotalToDownload == NowDownloaded) // force output when download is
 					      // finished
 		LOG_PROGRESS(NowDownloaded, TotalToDownload, true);

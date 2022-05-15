@@ -3,6 +3,7 @@
 #ifndef DOWNLOADER_H
 #define DOWNLOADER_H
 
+#include <memory>
 #include <string>
 #include <vector>
 #include <list>
@@ -10,6 +11,7 @@
 #include <stdint.h>
 #include "Rapid/Sdp.h"
 #include "DownloadEnum.h"
+#include "Mirror.h"
 
 class DownloadData;
 class IHash;
@@ -49,21 +51,11 @@ public:
 	/**
   *	size of pieces, last piece size can be different
   */
-	int piecesize = 0;
 	enum PIECE_STATE {
 		STATE_NONE,	// nothing was done with this piece
 		STATE_DOWNLOADING, // piece is currently downloaded
 		STATE_FINISHED,    // piece downloaded successfully + verified
 	};
-	struct piece
-	{
-		IHash* sha;
-		PIECE_STATE state;
-	};
-	/**
-   *	sha1 sum of pieces
-   */
-	std::vector<struct piece> pieces; // FIXME: make private
 	IHash* hash = nullptr;
 	CFile* file = nullptr;
 
@@ -72,10 +64,16 @@ public:
    */
 	int size = -1;
 
+	/**
+	 * Approximate file size, for cases where real size isn't entirely
+	 * known, e.g. when downloading compressed files from spd.
+	 * We default it to 1, as a simple file counter.
+	 */
+	int approx_size = 1;
+
 	std::map<CSdp*, uint64_t> rapid_size;
 	std::map<CSdp*, uint64_t> map_rapid_progress;
 
-	int progress = 0;
 	/**
    *	state for whole file
    */
@@ -84,14 +82,13 @@ public:
    *	returns number of bytes downloaded
    */
 	unsigned int getProgress() const;
+	void updateProgress(unsigned int progress);
 	std::string version;
-
-	unsigned int parallel_downloads = 0;
-	DownloadData* write_only_from = nullptr;
 
 	bool validateTLS = true;
 private:
-	std::vector<Mirror*> mirrors;
+	int progress = 0;
+	std::vector<std::unique_ptr<Mirror>> mirrors;
 	static void initCategories();
 };
 

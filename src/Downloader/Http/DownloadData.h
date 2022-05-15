@@ -10,17 +10,25 @@ class Mirror;
 class IDownload;
 class CurlWrapper;
 
+// Used for computing progress across multiple DownloadData downloaded in
+// parallel.
+class DownloadDataPack
+{
+public:
+	int size = 0;
+	int progress = 0;
+};
+
 class DownloadData
 {
 public:
 	DownloadData();
-
-	int start_piece = 0;
-	std::vector<unsigned int> pieces;
 	std::unique_ptr<CurlWrapper> curlw; // curl_easy_handle
 	Mirror* mirror = nullptr;     // mirror used
 	IDownload* download;
-	bool got_ranges = false; // true if headers received from server are fine
+	DownloadDataPack* data_pack = nullptr;
+
+	void updateProgress(double total, double done);
 };
 
 #endif
