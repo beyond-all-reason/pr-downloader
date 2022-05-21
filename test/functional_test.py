@@ -28,6 +28,7 @@ import hashlib
 import http.server
 import os
 import os.path
+import shutil
 import struct
 import subprocess
 import sys
@@ -262,6 +263,10 @@ class TestingHTTPServer(http.server.ThreadingHTTPServer):
         self._resolvers.append(resolver)
         self._resolver_locks.append(threading.Lock())
 
+    def clear_resolvers(self) -> None:
+        self._resolvers = []
+        self._resolver_locks = []
+
     @contextmanager
     def serve(self) -> Generator[None, None, None]:
         t = threading.Thread(target=self.serve_forever)
@@ -289,6 +294,17 @@ def create_temp_dir(suffix: Optional[str] = None,
         yield tempfile.mkdtemp(suffix=suffix, prefix=prefix, dir=dir)
 
     return h()
+
+
+def fail_requests_resolver(
+        paths: dict[str, HTTPStatus]) -> Callable[[str], HTTPStatus]:
+
+    def resolver(path: str) -> HTTPStatus:
+        if path in paths:
+            return paths[path]
+        return HTTPStatus.OK
+
+    return resolver
 
 
 class TestDownloading(unittest.TestCase):
@@ -333,6 +349,14 @@ class TestDownloading(unittest.TestCase):
                 return False
         return True
 
+    def clear_dest_root(self) -> None:
+        for f in os.listdir(self.dest_root):
+            path = os.path.join(self.dest_root, f)
+            if os.path.isdir(path):
+                shutil.rmtree(path)
+            else:
+                os.remove(path)
+
     def run(self, result: Optional[unittest.TestResult] = None) -> None:
         with create_temp_dir(prefix='pr-serv-',
                              delete=not self.keep_temp_files) as serving_root,\
@@ -372,16 +396,34 @@ class TestDownloading(unittest.TestCase):
 
     def test_rapid_host_broken(self) -> None:
         self.rapid.save(self.serving_root)
-
-        def resolver(path: str) -> HTTPStatus:
-            if path == '/repos.gz':
-                return HTTPStatus.INTERNAL_SERVER_ERROR
-            return HTTPStatus.OK
-
-        self.server.add_resolver(resolver)
-
+        self.server.add_resolver(
+            fail_requests_resolver(
+                {'/repos.gz': HTTPStatus.INTERNAL_SERVER_ERROR}))
         with self.server.serve():
             self.assertNotEqual(self.call_rapid_download('testrepo:pkg:1'), 0)
+
+    def test_all_download_failures_fail(self) -> None:
+        repo = self.rapid.add_repo('testrepo')
+        archive = repo.add_archive('pkg:1')
+        archive.add_file('a.txt', b'a')
+        archive.add_file('b.txt', b'aa')
+        self.rapid.save(self.serving_root)
+
+        # Make sure that when no errors are injected it succeeds.
+        with self.server.serve():
+            self.assertEqual(self.call_rapid_download('testrepo:pkg:1'), 0)
+
+        for sub, rf in self.rapid.traverse():
+            self.clear_dest_root()
+            path = os.path.join('/', sub, rf.rapid_filename())
+            self.server.add_resolver(
+                fail_requests_resolver({path: HTTPStatus.NOT_FOUND}))
+            with self.server.serve():
+                self.assertNotEqual(
+                    self.call_rapid_download('testrepo:pkg:1'),
+                    0,
+                    msg=f'downloading {path} didn\'t cause failure as expected')
+            self.server.clear_resolvers()
 
 
 if __name__ == '__main__':
