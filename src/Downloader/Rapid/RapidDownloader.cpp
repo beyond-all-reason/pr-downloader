@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <string>
 #include <string.h>
+#include <cstdlib>
 #include <list>
 #include <zlib.h>
 #include <algorithm> //std::min
@@ -22,8 +23,13 @@
 #undef max
 
 CRapidDownloader::CRapidDownloader()
-    : reposgzurl(REPO_MASTER)
 {
+	char* master_repo_env = std::getenv("PRD_RAPID_REPO_MASTER");
+	if (master_repo_env == nullptr) {
+		reposgzurl = REPO_MASTER;
+	} else {
+		reposgzurl = master_repo_env;
+	}
 }
 
 void CRapidDownloader::addRemoteSdp(CSdp&& sdp)
