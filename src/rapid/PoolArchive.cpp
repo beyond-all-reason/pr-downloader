@@ -41,8 +41,8 @@ void PoolArchiveT::load(DigestT const & Digest)
 		In.readExpected(Checksum, 4);
 		In.readExpected(Size, 4);
 		Pair.first = {Name, Length};
-		Marshal::unpackLittle(Pair.second.Checksum, Checksum);
-		Marshal::unpackLittle(Pair.second.Size, Size);
+		Marshal::unpackBig(Pair.second.Checksum, Checksum);
+		Marshal::unpackBig(Pair.second.Size, Size);
 		mEntries.insert(Pair);
 	}
 }
@@ -66,8 +66,8 @@ ArchiveEntryT PoolArchiveT::save()
 
 	for (auto & Pair : mEntries)
 	{
-		Marshal::packLittle(Pair.second.Checksum, ChecksumBuffer);
-		Marshal::packLittle(Pair.second.Size, SizeBuffer);
+		Marshal::packBig(Pair.second.Checksum, ChecksumBuffer);
+		Marshal::packBig(Pair.second.Size, SizeBuffer);
 		unsigned char Length = Pair.first.size();
 		Out.write(&Length, 1);
 		Out.write(Pair.first.data(), Length);
@@ -182,9 +182,9 @@ ChecksumT PoolArchiveT::getChecksum()
 		Crc32T NameCrc32;
 		NameCrc32.update(Pair.first.data(), Pair.first.size());
 		auto NameChecksum = NameCrc32.final();
-		Marshal::packBig(NameChecksum, ChecksumBuffer);
+		Marshal::packLittle(NameChecksum, ChecksumBuffer);
 		Crc32.update(ChecksumBuffer, 4);
-		Marshal::packBig(Pair.second.Checksum, ChecksumBuffer);
+		Marshal::packLittle(Pair.second.Checksum, ChecksumBuffer);
 		Crc32.update(ChecksumBuffer, 4);
 	}
 

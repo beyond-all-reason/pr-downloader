@@ -84,7 +84,7 @@ void stream(std::string const & StorePath, std::string const & Hexed)
 		const int In = open(Path.c_str(), O_RDONLY);
 		if (In < 0) throw std::runtime_error{"Error opening pool file"};
 		std::uint8_t Bytes[4];
-		Marshal::packLittle(Entry.Size, Bytes);
+		Marshal::packBig(Entry.Size, Bytes);
 		std::cout.write(reinterpret_cast<char *>(Bytes), 4);
 		std::cout.flush();
 		sendfile(STDOUT_FILENO, In, 0, Entry.Size);
