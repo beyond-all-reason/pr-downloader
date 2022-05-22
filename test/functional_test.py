@@ -20,7 +20,7 @@ from __future__ import annotations
 from contextlib import contextmanager, AbstractContextManager
 from dataclasses import dataclass, field
 from http import HTTPStatus
-from typing import Callable, ClassVar, Generator, Iterable, Optional
+from typing import cast, Callable, ClassVar, Generator, Iterable, Optional
 import argparse
 import binascii
 import gzip
@@ -62,7 +62,7 @@ class RapidFile:
 
     def get_contents(self) -> bytes:
         """Generates final compressed file and caches hash."""
-        contents = gzip.compress(self.serialize(), compresslevel=3)
+        contents = gzip.compress(self.serialize(), compresslevel=3, mtime=0)
         self.__final_hash = hashlib.blake2b(contents).digest()
         return contents
 
@@ -227,6 +227,7 @@ class RapidRoot(RapidFile):
 
 class TestingHTTPServer(http.server.ThreadingHTTPServer):
     directory: str
+    rapid: Optional[RapidRoot]
     _resolvers: list[Callable[[str], HTTPStatus]]
     _resolver_locks: list[threading.Lock]
 
@@ -234,7 +235,8 @@ class TestingHTTPServer(http.server.ThreadingHTTPServer):
         self.directory = directory
         self._resolvers = []
         self._resolver_locks = []
-        super().__init__(('localhost', 37421), self.create_handler)
+        self.rapid = None
+        super().__init__(('localhost', 0), self.create_handler)
 
     def create_handler(
             self, request: bytes, client_address: tuple[str, int],
@@ -253,6 +255,52 @@ class TestingHTTPServer(http.server.ThreadingHTTPServer):
                         self.send_error(status)
                         return
                 super().do_GET()
+
+            def do_POST(self) -> None:
+                # All POSTSs from pr-downloader are only for the streamer, and
+                # this function does a very basic simulation of execution of
+                # the real streamer cgi program.
+
+                path, query = self.path.rsplit('?', 1)
+                if not path.endswith('streamer.cgi'):
+                    self.send_error(HTTPStatus.NOT_FOUND, 'no streamer')
+                    return
+                if server.rapid is None:
+                    self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
+                    return
+                shortname = path.split('/')[1]
+                if shortname not in server.rapid.repos:
+                    self.send_error(HTTPStatus.NOT_FOUND, 'no repo')
+                    return
+                for a in server.rapid.repos[shortname].archives.values():
+                    if a.get_md5() == query:
+                        archive = a
+                        break
+                else:
+                    self.send_error(HTTPStatus.NOT_FOUND, 'no archive')
+                    return
+
+                length = int(cast(str, self.headers.get('content-length')))
+                data = self.rfile.read(length)
+                files_to_get = []
+                for b in gzip.decompress(data):
+                    files_to_get.extend([bool(b & (1 << i)) for i in range(8)])
+
+                out = []
+                for get, f in zip(files_to_get, archive.files.values()):
+                    if not get:
+                        continue
+                    data = f.get_contents()
+                    out.append(struct.pack('>I', len(data)))
+                    out.append(data)
+
+                result = b''.join(out)
+
+                self.send_response(HTTPStatus.OK, "Ok")
+                self.send_header('Content-Type', 'application/octet-stream')
+                self.send_header('Content-Length', str(len(result)))
+                self.end_headers()
+                self.wfile.write(result)
 
         return Handler(request,
                        client_address,
@@ -371,9 +419,10 @@ class TestDownloading(unittest.TestCase):
             self.server = server
             self.rapid = RapidRoot(
                 f'http://{server.server_address[0]}:{server.server_address[1]}')
+            self.server.rapid = self.rapid
             super().run(result)
 
-    def test_simple_download_ok(self) -> None:
+    def _base_simple_download_ok(self, use_streamer: bool) -> None:
         repo = self.rapid.add_repo('testrepo')
         archive = repo.add_archive('pkg:1')
         archive.add_file('a.txt', b'a')
@@ -387,12 +436,22 @@ class TestDownloading(unittest.TestCase):
         self.rapid.save(self.serving_root)
 
         with self.server.serve():
-            self.assertEqual(self.call_rapid_download('testrepo:pkg:1'), 0)
-            self.assertEqual(self.call_rapid_download('testrepo2:pkg:2'), 0)
+            self.assertEqual(
+                self.call_rapid_download('testrepo:pkg:1',
+                                         use_streamer=use_streamer), 0)
+            self.assertEqual(
+                self.call_rapid_download('testrepo2:pkg:2',
+                                         use_streamer=use_streamer), 0)
 
         self.assertTrue(self.verify_downloaded_rapid('testrepo:pkg:1'))
         self.assertTrue(self.verify_downloaded_rapid('testrepo2:pkg:2'))
         self.assertFalse(self.verify_downloaded_rapid('testrepo2:pkg:3'))
+
+    def test_simple_download_ok(self) -> None:
+        self._base_simple_download_ok(use_streamer=False)
+
+    def test_simple_download_ok_streamer(self) -> None:
+        self._base_simple_download_ok(use_streamer=True)
 
     def test_rapid_host_broken(self) -> None:
         self.rapid.save(self.serving_root)
