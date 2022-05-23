@@ -29,6 +29,7 @@ add_library(Downloader STATIC
 	Downloader/DownloadEnum.cpp
 	FileSystem/FileSystem.cpp
 	FileSystem/File.cpp
+	FileSystem/HashGzip.cpp
 	FileSystem/HashMD5.cpp
 	FileSystem/HashSHA1.cpp
 	FileSystem/IHash.cpp
