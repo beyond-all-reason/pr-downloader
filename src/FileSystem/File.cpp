@@ -31,24 +31,30 @@ CFile::~CFile()
 	Close();
 }
 
-void CFile::Close()
+void CFile::Close(bool discard)
 {
-	if (handle != nullptr) {
-		LOG_DEBUG("closing %s", filename.c_str());
-		if ((piecesize != -1) && (size != -1)) {
-			assert(GetSizeFromHandle() == size);
-		}
+	if (handle == nullptr) return;
 
-		fclose(handle);
-		handle = nullptr;
-		if (IsNewFile()) {
-			if (fileSystem->fileExists(
-				filename)) { // delete possible existing destination file
-				fileSystem->removeFile(filename);
-			}
-			fileSystem->Rename(tmpfile, filename);
-			isnewfile = false;
+	LOG_DEBUG("closing %s%s", filename.c_str(), discard ? ", with discard" : "");
+	if ((piecesize != -1) && (size != -1)) {
+		assert(GetSizeFromHandle() == size);
+	}
+
+	fclose(handle);
+	handle = nullptr;
+
+	if (discard) {
+		fileSystem->removeFile(IsNewFile() ? tmpfile : filename);
+		return;
+	}
+
+	if (IsNewFile()) {
+		if (fileSystem->fileExists(
+			filename)) { // delete possible existing destination file
+			fileSystem->removeFile(filename);
 		}
+		fileSystem->Rename(tmpfile, filename);
+		isnewfile = false;
 	}
 }
 

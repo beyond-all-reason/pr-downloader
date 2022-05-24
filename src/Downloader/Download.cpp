@@ -19,17 +19,6 @@ IDownload::IDownload(const std::string& name, const std::string& origin_name,
 {
 }
 
-IDownload::~IDownload()
-{
-	if (hash != nullptr)
-		delete hash;
-	hash = nullptr;
-	if (file != nullptr) {
-		delete file;
-		file = nullptr;
-	}
-}
-
 std::string IDownload::getUrl() const
 {
 	return mirrors.empty() ? "" : mirrors[0]->url;

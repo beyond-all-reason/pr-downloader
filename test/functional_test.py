@@ -484,6 +484,27 @@ class TestDownloading(unittest.TestCase):
                     msg=f'downloading {path} didn\'t cause failure as expected')
             self.server.clear_resolvers()
 
+    def _base_detect_file_corruption(self, use_streamer: bool) -> None:
+        repo = self.rapid.add_repo('testrepo')
+        archive = repo.add_archive('pkg:1')
+        file = archive.add_file('a.txt', b'aakjsdifnsdfef')
+        file.contents = b'ufeshfisuefe'
+        self.rapid.save(self.serving_root)
+
+        with self.server.serve():
+            self.assertNotEqual(
+                self.call_rapid_download('testrepo:pkg:1',
+                                         use_streamer=use_streamer), 0)
+            self.assertFalse(
+                os.path.exists(
+                    os.path.join(self.dest_root, file.rapid_filename())))
+
+    def test_detect_file_corruption(self) -> None:
+        self._base_detect_file_corruption(use_streamer=False)
+
+    def test_detect_file_corruption_streamer(self) -> None:
+        self._base_detect_file_corruption(use_streamer=True)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(add_help=False)

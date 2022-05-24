@@ -1,5 +1,6 @@
 /* This file is part of pr-downloader (GPL v2 or later), see the LICENSE file */
 
+#include <memory>
 #include <string>
 #include <string.h>
 #include <stdio.h>
@@ -15,6 +16,7 @@
 #include "FileSystem/FileSystem.h"
 #include "FileSystem/FileData.h"
 #include "FileSystem/HashMD5.h"
+#include "FileSystem/HashGzip.h"
 #include "FileSystem/File.h"
 #include "Downloader/CurlWrapper.h"
 #include "Downloader/Download.h"
@@ -383,23 +385,24 @@ bool CSdp::downloadHTTP()
 	std::list<IDownload*> dls;
 	for (FileData& fd: files) {
 		if (!fd.download) continue;
-		HashMD5 fileMd5;
-		fileMd5.Set(fd.md5, sizeof(fd.md5));
+		auto fileMd5 = std::make_unique<HashMD5>();
+		fileMd5->Set(fd.md5, sizeof(fd.md5));
 		// Multiple files in sdp can map to a single file in the pool,
 		// we need to skip duplicates.
-		if (md5_in_queue.find(fileMd5.toString()) != md5_in_queue.end()) {
+		if (md5_in_queue.find(fileMd5->toString()) != md5_in_queue.end()) {
 			continue;
 		}
-		md5_in_queue.insert(fileMd5.toString());
-		std::string url = fileSystem->getPoolFilename(fileMd5.toString(), baseUrl);
-		std::string filename = fileSystem->getPoolFilename(fileMd5.toString());
+		md5_in_queue.insert(fileMd5->toString());
+		std::string url = fileSystem->getPoolFilename(fileMd5->toString(), baseUrl);
+		std::string filename = fileSystem->getPoolFilename(fileMd5->toString());
 		IDownload* dl = new IDownload(filename);
 		dl->addMirror(url);
 		dl->approx_size = fd.size;
+		dl->hash = std::move(fileMd5);
+		dl->out_hash = std::make_unique<HashGzip>(std::make_unique<HashMD5>());
 		dls.push_back(dl);
 	}
 	bool ok = httpDownload->download(dls, 50);
 	IDownloader::freeResult(dls);
 	return ok;
-	return true;
 }

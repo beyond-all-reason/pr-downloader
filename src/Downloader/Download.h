@@ -12,11 +12,11 @@
 #include "Rapid/Sdp.h"
 #include "DownloadEnum.h"
 #include "Mirror.h"
+#include "FileSystem/IHash.h"
+#include "FileSystem/File.h"
 
 class DownloadData;
-class IHash;
 class Mirror;
-class CFile;
 
 class IDownload
 {
@@ -29,7 +29,6 @@ public:
 	IDownload(const std::string& filename = "", const std::string& orig_name = "",
 		  DownloadEnum::Category cat = DownloadEnum::CAT_NONE,
 		  download_type typ = TYP_HTTP);
-	~IDownload();
 	/**
    *
    *	add a mirror to the download specified
@@ -53,11 +52,17 @@ public:
   */
 	enum PIECE_STATE {
 		STATE_NONE,	// nothing was done with this piece
-		STATE_DOWNLOADING, // piece is currently downloaded
-		STATE_FINISHED,    // piece downloaded successfully + verified
+		STATE_DOWNLOADING, // piece is currently downloaded, something
+		                   // was writen to the file
+		STATE_FAILED,    // piece failed to download or verify
+		STATE_FINISHED,    // piece downloaded successfully and verified
 	};
-	IHash* hash = nullptr;
-	CFile* file = nullptr;
+	// What the hash the download is supposed to have.
+	std::unique_ptr<IHash> hash = nullptr;
+	// To store the actual hash of the download. Need to be set by the
+	// caller because we don't know the concrete type.
+	std::unique_ptr<IHash> out_hash = nullptr;
+	std::unique_ptr<CFile> file = nullptr;
 
 	/**
    *	file size

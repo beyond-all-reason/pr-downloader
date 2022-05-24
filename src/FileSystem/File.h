@@ -49,9 +49,10 @@ public:
   */
 	bool Open(const std::string& filename, long size = -1, int piecesize = -1);
 	/**
-  *	close file
+  *	close file. If discard is set, removes the file as something is wrong
+  * with its contents.
   */
-	void Close();
+	void Close(bool discard = false);
 	/**
   *	read buf from file, starting at restored piece pos, if piece>=0
   *   @todo hides IFile::Read
