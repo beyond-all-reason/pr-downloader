@@ -300,9 +300,8 @@ bool CHttpDownloader::processMessages(CURLM* curlm,
 							  curl_easy_strerror(msg->data.result), http_code,
 							  data->mirror->url.c_str());
 						data->mirror->status = Mirror::STATUS_BROKEN;
-						// TODO(p2004a): reset file progress, handle error retry
+						// TODO(p2004a): Implement retrying of server errors with exponential backoff.
 						ok = false;
-						// FIXME: cleanup curl handle here + process next dl
 				}
 				assert(data->download->file != nullptr);
 

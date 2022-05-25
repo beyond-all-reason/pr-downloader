@@ -382,7 +382,6 @@ bool CSdp::downloadStream()
 
 bool CSdp::downloadHTTP()
 {
-	// TODO(p2004a): Add verification of downloaded files.
 	std::unordered_set<std::string> md5_in_queue;
 	std::list<IDownload*> dls;
 	for (FileData& fd: files) {
