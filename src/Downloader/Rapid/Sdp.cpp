@@ -86,7 +86,9 @@ bool CSdp::download(IDownload* dl)
 	if ((!fileSystem->fileExists(sdpPath)) || (!fileSystem->parseSdp(sdpPath, files))) {// parse downloaded file
 		if (!downloadSelf(dl))
 			return false;
-		fileSystem->parseSdp(sdpPath, files);
+		if (!fileSystem->parseSdp(sdpPath, files)) {
+			return false;
+		}
 	}
 
 	int i = 0;

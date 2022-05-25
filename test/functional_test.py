@@ -505,6 +505,19 @@ class TestDownloading(unittest.TestCase):
     def test_detect_file_corruption_streamer(self) -> None:
         self._base_detect_file_corruption(use_streamer=True)
 
+    def test_sdp_corruption_fails(self) -> None:
+        repo = self.rapid.add_repo('testrepo')
+        archive = repo.add_archive('pkg:1')
+        file = archive.add_file('a.txt', b'a')
+        self.rapid.save(self.serving_root)
+
+        with open(os.path.join(self.serving_root, 'testrepo', archive.rapid_filename()), 'wb') as f:
+            f.write(b'asdiiada')
+
+        with self.server.serve():
+            self.assertNotEqual(
+                self.call_rapid_download('testrepo:pkg:1'), 0)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(add_help=False)
