@@ -249,11 +249,10 @@ bool CHttpDownloader::setupDownload(DownloadData* piece)
 
 	curl_easy_setopt(curle, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NO_REVOKE);
 
-	
-	curl_easy_setopt(curle, CURLOPT_SSL_VERIFYPEER, piece->download->validateTLS);
-	LOG_DEBUG("Validating TLS: %d", piece->download->validateTLS);
-
-	LOG_DEBUG("single piece transfer");
+	if (!piece->download->validateTLS) {
+		LOG_DEBUG("Not Validating TLS");
+		curl_easy_setopt(curle, CURLOPT_SSL_VERIFYPEER, 0);
+	}
 	// this sets the header If-Modified-Since -> downloads only when remote file
 	// is newer than local file
 	const long timestamp = piece->download->file->GetTimestamp();

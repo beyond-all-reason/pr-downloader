@@ -31,6 +31,7 @@ static std::string GetCAFilePath()
 }
 
 static curl_sslbackend backend = CURLSSLBACKEND_NONE;
+static bool verify_certificate = true;
 
 static void GetTLSBackend()
 {
@@ -166,6 +167,8 @@ CurlWrapper::CurlWrapper()
 	curl_easy_setopt(handle, CURLOPT_USERAGENT, getVersion());
 	curl_easy_setopt(handle, CURLOPT_FAILONERROR, true);
 	curl_easy_setopt(handle, CURLOPT_FOLLOWLOCATION, 1);
+	curl_easy_setopt(handle, CURLOPT_SSL_VERIFYPEER, verify_certificate ? 1 : 0);
+	curl_easy_setopt(handle, CURLOPT_SSL_VERIFYHOST, verify_certificate ? 2 : 0);
 
 	list = nullptr;
 	list = curl_slist_append(list, "Cache-Control: no-cache");
@@ -211,6 +214,9 @@ void CurlWrapper::InitCurl()
 	curl_global_init(CURL_GLOBAL_ALL);
 	if (backend != CURLSSLBACKEND_SCHANNEL) {
 		ValidateCaFile(GetCAFilePath());
+	}
+	if (std::string(std::getenv("PRD_DISABLE_CERT_CHECK")) == "true") {
+		verify_certificate = false;
 	}
 }
 
