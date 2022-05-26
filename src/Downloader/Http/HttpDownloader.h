@@ -39,7 +39,8 @@ private:
   *	@returns false, when some fatal error occured -> abort
   */
 	bool processMessages(CURLM* curlm, std::vector<DownloadData*>& downloads,
-	                     std::vector<DownloadData*>::iterator& next_download);
+	                     std::vector<DownloadData*>::iterator& next_download,
+	                     int* running);
 	DownloadData* getDataByHandle(const std::vector<DownloadData*>& downloads,
 				      const CURL* easy_handle) const;
 };

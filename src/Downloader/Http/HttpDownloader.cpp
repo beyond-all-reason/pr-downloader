@@ -268,7 +268,8 @@ bool CHttpDownloader::setupDownload(DownloadData* piece)
 
 bool CHttpDownloader::processMessages(CURLM* curlm,
                                       std::vector<DownloadData*>& downloads,
-                                      std::vector<DownloadData*>::iterator& next_download)
+                                      std::vector<DownloadData*>::iterator& next_download,
+                                      int* running)
 {
 	int msgs_left;
 	bool ok = true;
@@ -321,6 +322,7 @@ bool CHttpDownloader::processMessages(CURLM* curlm,
 					if (setupDownload(*next_download)) {
 						curl_multi_add_handle(curlm, (*next_download)->curlw->GetHandle());
 						++next_download;
+						++(*running);
 					} else {
 						ok = false;
 					}
@@ -437,7 +439,7 @@ bool CHttpDownloader::download(std::list<IDownload*>& download,
 			ret = curl_multi_perform(curlm, &running);
 		}
 		if (ret == CURLM_OK) {
-			if (!processMessages(curlm, downloads, next_download)) {
+			if (!processMessages(curlm, downloads, next_download, &running)) {
 				aborted = true;
 				break;
 			}
