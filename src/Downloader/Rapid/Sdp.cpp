@@ -404,7 +404,7 @@ bool CSdp::downloadHTTP()
 		dl->out_hash = std::make_unique<HashGzip>(std::make_unique<HashMD5>());
 		dls.push_back(dl);
 	}
-	bool ok = httpDownload->download(dls, 50);
+	bool ok = httpDownload->download(dls, 100);
 	IDownloader::freeResult(dls);
 	return ok;
 }

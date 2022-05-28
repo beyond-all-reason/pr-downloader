@@ -239,6 +239,7 @@ bool CHttpDownloader::setupDownload(DownloadData* piece)
 	piece->curlw = std::make_unique<CurlWrapper>();
 	CURL* curle = piece->curlw->GetHandle();
 
+    curl_easy_setopt(curle, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_2);
 	curl_easy_setopt(curle, CURLOPT_PRIVATE, piece);
 	curl_easy_setopt(curle, CURLOPT_WRITEFUNCTION, multi_write_data);
 	curl_easy_setopt(curle, CURLOPT_WRITEDATA, piece);
@@ -246,7 +247,7 @@ bool CHttpDownloader::setupDownload(DownloadData* piece)
 	curl_easy_setopt(curle, CURLOPT_PROGRESSDATA, piece);
 	curl_easy_setopt(curle, CURLOPT_PROGRESSFUNCTION, progress_func);
 	curl_easy_setopt(curle, CURLOPT_URL, CurlWrapper::escapeUrl(piece->mirror->url).c_str());
-
+	curl_easy_setopt(curle, CURLOPT_PIPEWAIT, 1L);
 	curl_easy_setopt(curle, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NO_REVOKE);
 
 	if (!piece->download->validateTLS) {
@@ -392,6 +393,9 @@ bool CHttpDownloader::download(std::list<IDownload*>& download,
 	std::vector<DownloadData*> downloads;
 	DownloadDataPack download_pack;
 	CURLM* curlm = curl_multi_init();
+	curl_multi_setopt(curlm, CURLMOPT_PIPELINING, CURLPIPE_MULTIPLEX);
+	curl_multi_setopt(curlm, CURLMOPT_MAX_TOTAL_CONNECTIONS, 5);
+
 	for (IDownload* dl : download) {
 		if (dl->isFinished()) {
 			continue;
