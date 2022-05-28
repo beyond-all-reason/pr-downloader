@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2022 Marek Rusinowski
-# SPDX-License-Identifier: GPL-2.0-or-later OR Apache-2.0 OR MIT
+# SPDX-License-Identifier: GPL-2.0-or-later OR Apache-2.0 OR MIT OR BSL-1.0
 #
 # mypy: warn-unused-configs, disallow-any-generics, disallow-subclassing-any,
 # mypy: disallow-untyped-calls, disallow-untyped-defs, disallow-incomplete-defs,
