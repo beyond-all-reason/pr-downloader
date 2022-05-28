@@ -110,7 +110,7 @@ class Archive(RapidFile):
 
     def serialize(self) -> bytes:
         out = []
-        for n, f in self.files.items():
+        for n, f in sorted(list(self.files.items())):
             assert n == f.filename
             filename_bytes = f.filename.encode()
             out.append(struct.pack('B', len(filename_bytes)))
@@ -121,7 +121,7 @@ class Archive(RapidFile):
 
     def get_md5(self) -> str:
         digest = hashlib.md5()
-        for f in self.files.values():
+        for _, f in sorted(list(self.files.items())):
             digest.update(hashlib.md5(f.filename.encode()).digest())
             digest.update(f.md5)
         return digest.hexdigest()
@@ -287,7 +287,10 @@ class TestingHTTPServer(http.server.ThreadingHTTPServer):
                     files_to_get.extend([bool(b & (1 << i)) for i in range(8)])
 
                 out = []
-                for get, f in zip(files_to_get, archive.files.values()):
+                files_sorted = [
+                    f for _, f in sorted(list(archive.files.items()))
+                ]
+                for get, f in zip(files_to_get, files_sorted):
                     if not get:
                         continue
                     data = f.get_contents()
@@ -511,12 +514,13 @@ class TestDownloading(unittest.TestCase):
         file = archive.add_file('a.txt', b'a')
         self.rapid.save(self.serving_root)
 
-        with open(os.path.join(self.serving_root, 'testrepo', archive.rapid_filename()), 'wb') as f:
+        with open(
+                os.path.join(self.serving_root, 'testrepo',
+                             archive.rapid_filename()), 'wb') as f:
             f.write(b'asdiiada')
 
         with self.server.serve():
-            self.assertNotEqual(
-                self.call_rapid_download('testrepo:pkg:1'), 0)
+            self.assertNotEqual(self.call_rapid_download('testrepo:pkg:1'), 0)
 
     # TODO(marekr): Fix bugs that are being reproduced by the tests below.
 
