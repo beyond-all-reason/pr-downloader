@@ -119,7 +119,8 @@ bool CSdp::download(IDownload* dl)
 		}
 
 		bool res;
-		if (std::string(std::getenv("PRD_RAPID_USE_STREAMER")) == "false") {
+		const char* use_streamer_env = std::getenv("PRD_RAPID_USE_STREAMER");
+		if (use_streamer_env != nullptr && std::string(use_streamer_env) == "false") {
 			res = downloadHTTP();
 		} else {
 			res = downloadStream();

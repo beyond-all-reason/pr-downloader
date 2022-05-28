@@ -215,7 +215,8 @@ void CurlWrapper::InitCurl()
 	if (backend != CURLSSLBACKEND_SCHANNEL) {
 		ValidateCaFile(GetCAFilePath());
 	}
-	if (std::string(std::getenv("PRD_DISABLE_CERT_CHECK")) == "true") {
+	const char* cert_check_env = std::getenv("PRD_DISABLE_CERT_CHECK");
+	if (cert_check_env != nullptr && std::string(cert_check_env) == "true") {
 		verify_certificate = false;
 	}
 }
