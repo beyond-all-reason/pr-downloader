@@ -11,12 +11,10 @@
 #include <stdint.h>
 #include "Rapid/Sdp.h"
 #include "DownloadEnum.h"
-#include "Mirror.h"
 #include "FileSystem/IHash.h"
 #include "FileSystem/File.h"
 
 class DownloadData;
-class Mirror;
 
 class IDownload
 {
@@ -43,9 +41,7 @@ public:
 				       /**
                                   *	returns first url
                                   */
-	std::string getUrl() const;
-	Mirror* getMirror(unsigned i) const;
-	Mirror* getFastestMirror();
+	std::string getMirror(unsigned i = 0) const;
 	int getMirrorCount() const;
 	/**
   *	size of pieces, last piece size can be different
@@ -93,7 +89,7 @@ public:
 	bool validateTLS = true;
 private:
 	int progress = 0;
-	std::vector<std::unique_ptr<Mirror>> mirrors;
+	std::vector<std::string> mirrors;
 	static void initCategories();
 };
 

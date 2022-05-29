@@ -4,11 +4,12 @@
 #include "Downloader/Download.h"
 
 #include <algorithm>
+#include <cstdio>
+#include <cstdlib>
 #include <memory>
-#include <stdio.h>
-#include <string>
+#include <random>
 #include <sstream>
-#include <stdlib.h>
+#include <string>
 #include <sys/types.h>
 
 #ifdef _WIN32
@@ -26,7 +27,6 @@
 #include "FileSystem/HashSHA1.h"
 #include "Util.h"
 #include "Logger.h"
-#include "Downloader/Mirror.h"
 #include "Downloader/CurlWrapper.h"
 
 static size_t WriteMemoryCallback(void* contents, size_t size, size_t nmemb,
@@ -212,14 +212,17 @@ static size_t multi_write_data(void* ptr, size_t size, size_t nmemb,
 
 bool CHttpDownloader::setupDownload(DownloadData* piece)
 {
+	static std::default_random_engine gen(std::random_device{}());
+
 	if (piece->download->isFinished())
 		return false;
 
-	piece->mirror = piece->download->getFastestMirror();
-	if (piece->mirror == nullptr) {
+	if (piece->download->getMirrorCount() < 1) {
 		LOG_ERROR("No mirror found for %s", piece->download->name.c_str());
 		return false;
 	}
+	std::uniform_int_distribution<> dist(0, piece->download->getMirrorCount() - 1);
+	piece->mirror = piece->download->getMirror(dist(gen));
 
 	if (piece->download->file != nullptr) {
 		bool discard = piece->download->file->IsNewFile()
@@ -246,7 +249,7 @@ bool CHttpDownloader::setupDownload(DownloadData* piece)
 	curl_easy_setopt(curle, CURLOPT_NOPROGRESS, 0L);
 	curl_easy_setopt(curle, CURLOPT_PROGRESSDATA, piece);
 	curl_easy_setopt(curle, CURLOPT_PROGRESSFUNCTION, progress_func);
-	curl_easy_setopt(curle, CURLOPT_URL, CurlWrapper::escapeUrl(piece->mirror->url).c_str());
+	curl_easy_setopt(curle, CURLOPT_URL, CurlWrapper::escapeUrl(piece->mirror).c_str());
 	curl_easy_setopt(curle, CURLOPT_PIPEWAIT, 1L);
 	curl_easy_setopt(curle, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NO_REVOKE);
 
@@ -299,21 +302,11 @@ bool CHttpDownloader::processMessages(CURLM* curlm,
 						curl_easy_getinfo(msg->easy_handle, CURLINFO_RESPONSE_CODE, &http_code);
 						LOG_ERROR("CURL error(%d:%d): %s %d (%s)", msg->msg, msg->data.result,
 							  curl_easy_strerror(msg->data.result), http_code,
-							  data->mirror->url.c_str());
-						data->mirror->status = Mirror::STATUS_BROKEN;
+							  data->mirror.c_str());
 						// TODO(p2004a): Implement retrying of server errors with exponential backoff.
 						ok = false;
 				}
 				assert(data->download->file != nullptr);
-
-				// get speed at which this piece was downloaded + update mirror info
-				double dlSpeed;
-				curl_easy_getinfo(data->curlw->GetHandle(), CURLINFO_SPEED_DOWNLOAD,
-						  &dlSpeed);
-				data->mirror->UpdateSpeed(dlSpeed);
-				if (data->mirror->status ==
-				    Mirror::STATUS_UNKNOWN) // set mirror status only when unset
-					data->mirror->status = Mirror::STATUS_OK;
 
 				// remove easy handle, as its finished
 				curl_multi_remove_handle(curlm, data->curlw->GetHandle());

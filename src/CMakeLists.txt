@@ -25,7 +25,6 @@ add_library(Downloader STATIC
 	Downloader/CurlWrapper.cpp
 	Downloader/Download.cpp
 	Downloader/IDownloader.cpp
-	Downloader/Mirror.cpp
 	Downloader/DownloadEnum.cpp
 	FileSystem/FileSystem.cpp
 	FileSystem/File.cpp

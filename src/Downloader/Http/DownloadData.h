@@ -5,6 +5,7 @@
 
 #include <memory>
 #include <vector>
+#include <string>
 
 class Mirror;
 class IDownload;
@@ -24,7 +25,7 @@ class DownloadData
 public:
 	DownloadData();
 	std::unique_ptr<CurlWrapper> curlw; // curl_easy_handle
-	Mirror* mirror = nullptr;     // mirror used
+	std::string mirror;     // mirror used
 	IDownload* download;
 	DownloadDataPack* data_pack = nullptr;
 

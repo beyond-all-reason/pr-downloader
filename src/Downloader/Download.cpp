@@ -4,7 +4,6 @@
 #include "Logger.h"
 #include "FileSystem/IHash.h"
 #include "FileSystem/File.h"
-#include "Mirror.h"
 
 #include <string>
 #include <list>
@@ -19,44 +18,10 @@ IDownload::IDownload(const std::string& name, const std::string& origin_name,
 {
 }
 
-std::string IDownload::getUrl() const
-{
-	return mirrors.empty() ? "" : mirrors[0]->url;
-}
-
-Mirror* IDownload::getMirror(unsigned i) const
+std::string IDownload::getMirror(unsigned i) const
 {
 	assert(i < mirrors.size());
-	return mirrors[i].get();
-}
-
-Mirror* IDownload::getFastestMirror()
-{
-	int max = -1;
-	int pos = -1;
-	for (unsigned i = 0; i < mirrors.size(); i++) {
-		if (mirrors[i]->status ==
-		    Mirror::STATUS_UNKNOWN) { // prefer mirrors with unknown status
-			mirrors[i]->status =
-			    Mirror::STATUS_OK; // set status to ok, to not use it again
-			LOG_DEBUG("Mirror %d: status unknown", i);
-			return mirrors[i].get();
-		}
-		if ((mirrors[i]->status != Mirror::STATUS_BROKEN) &&
-		    (mirrors[i]->maxspeed > max)) {
-			max = mirrors[i]->maxspeed;
-			pos = i;
-		}
-		LOG_DEBUG("Mirror %d: (%d): %s", i, mirrors[i]->maxspeed,
-			  mirrors[i]->url.c_str());
-	}
-	if (pos < 0) {
-		LOG_DEBUG("no mirror selected");
-		return nullptr;
-	}
-	LOG_DEBUG("Fastest mirror %d: (%d): %s", pos, mirrors[pos]->maxspeed,
-		  mirrors[pos]->url.c_str());
-	return mirrors[pos].get();
+	return mirrors[i];
 }
 
 int IDownload::getMirrorCount() const
@@ -70,7 +35,7 @@ bool IDownload::addMirror(const std::string& url)
 	if (origin_name.empty()) {
 		origin_name = url;
 	}
-	this->mirrors.emplace_back(new Mirror(url));
+	this->mirrors.emplace_back(url);
 	return true;
 }
 
