@@ -26,11 +26,6 @@ public:
 
 private:
 	/**
-  *	gets next piece that can be downloaded, mark it as downloading
-  *	@return true when DownloadData is correctly set
-  */
-	bool setupDownload(DownloadData* piece);
-	/**
   *	process curl messages
   *		- verify
   *		- starts redownloads piece, when piece dl failed from some
@@ -38,9 +33,7 @@ private:
   *		- keep some stats (mark broken mirrors, downloadspeed)
   *	@returns false, when some fatal error occured -> abort
   */
-	bool processMessages(CURLM* curlm, std::vector<DownloadData*>& downloads,
-	                     std::vector<DownloadData*>::iterator& next_download,
-	                     int* running);
+	bool processMessages(CURLM* curlm, std::vector<DownloadData*>* to_retry);
 	DownloadData* getDataByHandle(const std::vector<DownloadData*>& downloads,
 				      const CURL* easy_handle) const;
 };

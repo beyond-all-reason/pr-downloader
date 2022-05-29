@@ -6,6 +6,7 @@
 #include <memory>
 #include <vector>
 #include <string>
+#include <chrono>
 
 class Mirror;
 class IDownload;
@@ -28,6 +29,9 @@ public:
 	std::string mirror;     // mirror used
 	IDownload* download;
 	DownloadDataPack* data_pack = nullptr;
+	int retry_num = 0;
+	std::chrono::seconds retry_after_from_server{0};
+	std::chrono::steady_clock::time_point next_retry;
 
 	void updateProgress(double total, double done);
 };

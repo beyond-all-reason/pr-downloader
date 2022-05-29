@@ -456,14 +456,6 @@ class TestDownloading(unittest.TestCase):
     def test_simple_download_ok_streamer(self) -> None:
         self._base_simple_download_ok(use_streamer=True)
 
-    def test_rapid_host_broken(self) -> None:
-        self.rapid.save(self.serving_root)
-        self.server.add_resolver(
-            fail_requests_resolver(
-                {'/repos.gz': HTTPStatus.INTERNAL_SERVER_ERROR}))
-        with self.server.serve():
-            self.assertNotEqual(self.call_rapid_download('testrepo:pkg:1'), 0)
-
     def test_all_download_failures_fail(self) -> None:
         repo = self.rapid.add_repo('testrepo')
         archive = repo.add_archive('pkg:1')
@@ -521,6 +513,27 @@ class TestDownloading(unittest.TestCase):
 
         with self.server.serve():
             self.assertNotEqual(self.call_rapid_download('testrepo:pkg:1'), 0)
+
+    def test_retries_server_issues(self) -> None:
+        repo = self.rapid.add_repo('testrepo')
+        archive = repo.add_archive('pkg:1')
+        archive.add_file('a.txt', b'a')
+        failing_file = archive.add_file('b.txt', b'aa')
+        self.rapid.save(self.serving_root)
+
+        retries_left = 3
+
+        def resolver(path: str) -> HTTPStatus:
+            nonlocal retries_left
+            if path.endswith(failing_file.rapid_filename()):
+                if retries_left > 0:
+                    retries_left -= 1
+                    return HTTPStatus.INTERNAL_SERVER_ERROR
+            return HTTPStatus.OK
+
+        self.server.add_resolver(resolver)
+        with self.server.serve():
+            self.assertEqual(self.call_rapid_download('testrepo:pkg:1'), 0)
 
     # TODO(marekr): Fix bugs that are being reproduced by the tests below.
 
