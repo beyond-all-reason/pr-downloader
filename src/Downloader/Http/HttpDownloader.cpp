@@ -388,6 +388,29 @@ bool CHttpDownloader::processMessages(CURLM* curlm,
 	return ok;
 }
 
+bool computeRetry(DownloadData* data) {
+	auto now = std::chrono::steady_clock::now();
+	using namespace std::chrono_literals;
+	constexpr int retry_num_limit = 10;
+	++data->retry_num;
+	if (data->retry_num > retry_num_limit) {
+		LOG_ERROR("Limit of retried (%d) reached for %s, aborting",
+		          retry_num_limit, data->download->name.c_str());
+		return false;
+	}
+	if (data->retry_after_from_server > 30s) {
+		LOG_ERROR("Server asked us to retry after %ds which is longer then max of 30s, aborting",
+		          data->retry_after_from_server.count());
+		return false;
+	}
+	auto backoff = retryAfter(data->retry_num, 100ms, 5s);
+	if (data->retry_after_from_server > 0s) {
+		backoff = data->retry_after_from_server;
+	}
+	data->next_retry = now + backoff;
+	return true;
+}
+
 bool CHttpDownloader::download(std::list<IDownload*>& download,
                                int max_parallel)
 {
@@ -447,31 +470,16 @@ bool CHttpDownloader::download(std::list<IDownload*>& download,
 
 		// Add all requests that should be retried to the wait_queue with delay
 		// or fail if we did too many retries already.
-		auto now = std::chrono::steady_clock::now();
 		for (DownloadData* data: to_retry) {
-			using namespace std::chrono_literals;
-			constexpr int retry_num_limit = 10;
-			++data->retry_num;
-			if (data->retry_num > retry_num_limit) {
-				LOG_ERROR("Limit of retried (%d) reached for %s, aborting",
-				          retry_num_limit, data->download->name.c_str());
+			if (!computeRetry(data)) {
 				goto abort;
 			}
-			if (data->retry_after_from_server > 30s) {
-				LOG_ERROR("Server asked us to retry after %ds which is longer then max of 30s, aborting",
-				          data->retry_after_from_server.count());
-				goto abort;
-			}
-			auto backoff = retryAfter(data->retry_num, 100ms, 5s);
-			if (data->retry_after_from_server > 0s) {
-				backoff = data->retry_after_from_server;
-			}
-			data->next_retry = now + backoff;
 			wait_queue.push(data);
 		}
 
 		// If enough time passed for element in the wait_queue, retry the request.
 		running += wait_queue.size();
+		auto now = std::chrono::steady_clock::now();
 		while (!wait_queue.empty() && wait_queue.top()->next_retry <= now) {
 			if (!setupDownload(curlm, wait_queue.top())) {
 				goto abort;
