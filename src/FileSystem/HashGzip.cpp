@@ -3,8 +3,9 @@
 #include "HashGzip.h"
 #include "FileSystem.h"
 
-#include <assert.h>
-#include <string.h>
+#include <cassert>
+#include <cstdio>
+#include <cstring>
 #include <zlib.h>
 
 HashGzip::HashGzip(std::unique_ptr<IHash> hash)
@@ -15,12 +16,14 @@ HashGzip::HashGzip(std::unique_ptr<IHash> hash)
 	strm.opaque = Z_NULL;
 	strm.avail_in = 0;
 	strm.next_in = Z_NULL;
-	assert(inflateInit2(&strm, 32) == Z_OK);
+	int ret = inflateInit2(&strm, 32);
+	assert(ret == Z_OK);
 }
 
 HashGzip::~HashGzip()
 {
-	assert(inflateEnd(&strm) == Z_OK);
+	int ret = inflateEnd(&strm);
+	assert(ret == Z_OK);
 }
 
 void HashGzip::Init()
@@ -28,7 +31,8 @@ void HashGzip::Init()
 	isset = false;
 	error = false;
 	stream_done = false;
-	assert(inflateReset(&strm) == Z_OK);
+	int ret = inflateReset(&strm);
+	assert(ret == Z_OK);
 	subhash->Init();
 }
 
