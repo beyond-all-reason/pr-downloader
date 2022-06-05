@@ -20,7 +20,7 @@ void DownloadData::updateProgress(double total, double done)
 		unsigned int old_progress = download->getProgress();
 		unsigned int progress = done;
 		download->updateProgress(progress);
-		double at = (double)(download->size > 0 ? download->size : download->approx_size) / total;
+		double at = (double)approx_size / total;
 		data_pack->progress += (int)(at * progress) - (int)(at * old_progress);
 
 		if (IDownloader::listener != nullptr) {

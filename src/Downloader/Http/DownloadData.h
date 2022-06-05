@@ -29,6 +29,7 @@ public:
 	std::string mirror;     // mirror used
 	IDownload* download;
 	DownloadDataPack* data_pack = nullptr;
+	int approx_size = 0; // Either approx or real size from the IDownload.
 	int retry_num = 0;
 	std::chrono::seconds retry_after_from_server{0};
 	std::chrono::steady_clock::time_point next_retry;

@@ -449,8 +449,10 @@ bool CHttpDownloader::download(std::list<IDownload*>& download,
 		dlData->download = dl;
 		dlData->data_pack = &download_pack;
 		if (dl->size > 0) {
+			dlData->approx_size = dl->size;
 			download_pack.size += dl->size;
 		} else {
+			dlData->approx_size = dl->approx_size;
 			download_pack.size += dl->approx_size;
 		}
 	}
@@ -459,13 +461,25 @@ bool CHttpDownloader::download(std::list<IDownload*>& download,
 		return true;
 	}
 
+	// We sort the downloads by size and then pull files from both ends of the
+	// queue. The goal is to have a one big file in progress and and multiple
+	// smaller ones. We do this to try to maximize bandwidth usage and minimize
+	// impact from latency and rate limiting. In other words, try to as much as
+	// possible shift bottleneck on download speed from req/s to client
+	// bandwidth.
+	std::sort(downloads.begin(), downloads.end(),
+	          [](const std::unique_ptr<DownloadData>& a,
+	             const std::unique_ptr<DownloadData>& b) {
+		return a->approx_size < b->approx_size;
+	});
+	auto small_file_it = downloads.begin();
+	auto big_file_it = downloads.end();
+
 	// Perform actual download using the Curl multi interface.
 	CURLM* curlm = curl_multi_init();
 	curl_multi_setopt(curlm, CURLMOPT_PIPELINING, CURLPIPE_MULTIPLEX);
 	curl_multi_setopt(curlm, CURLMOPT_MAX_TOTAL_CONNECTIONS, 5);
-	auto next_download = downloads.begin();
-	bool aborted = true;   // We use goto with aborted because we have nested loops.
-	int running = 0;   // Number of currently running downloads + waiting for retry
+
 	std::vector<DownloadData*> to_retry;
 	auto queue_comparator = [](DownloadData* a, DownloadData* b) {
 		return a->next_retry < b->next_retry;
@@ -476,6 +490,9 @@ bool CHttpDownloader::download(std::list<IDownload*>& download,
 	Throttler throttler(max_req_per_sec,
 	                    std::min((unsigned)max_parallel,
 	                             std::max(max_req_per_sec / 10, 5U)));
+
+	int running = 0;   // Number of currently running downloads + waiting for retry
+	bool aborted = true;   // We use goto with aborted because we have nested loops.
 	do {
 		CURLMcode ret = curl_multi_perform(curlm, &running);
 		if (ret != CURLM_OK) {
@@ -496,6 +513,8 @@ bool CHttpDownloader::download(std::list<IDownload*>& download,
 			wait_queue.push(data);
 		}
 
+		throttler.refill_bucket();
+
 		// If enough time passed for element in the wait_queue, retry the request.
 		running += wait_queue.size();
 		auto now = std::chrono::steady_clock::now();
@@ -507,13 +526,19 @@ bool CHttpDownloader::download(std::list<IDownload*>& download,
 			wait_queue.pop();
 		}
 
-		// Start more new requests up to so we have up to max_parallel happening.
-		for (; running < max_parallel && next_download != downloads.end() &&
+		// Start more new requests so we have up to max_parallel happening.
+		for (; running < max_parallel && small_file_it < big_file_it &&
 		       throttler.get_token(); ++running) {
-			if (!setupDownload(curlm, (*next_download).get())) {
+			decltype(downloads)::iterator to_download;
+			if (big_file_it == downloads.end() ||
+			    (*big_file_it)->download->state == IDownload::STATE_FINISHED) {
+				to_download = --big_file_it;
+			} else {
+				to_download = small_file_it++;
+			}
+			if (!setupDownload(curlm, (*to_download).get())) {
 				goto abort;
 			}
-			++next_download;
 		}
 
 		ret = curl_multi_poll(curlm, NULL, 0, 20, NULL);
@@ -521,8 +546,7 @@ bool CHttpDownloader::download(std::list<IDownload*>& download,
 			LOG_ERROR("curl_multi_poll, code %d.\n", ret);
 			goto abort;
 		}
-		throttler.refill_bucket();
-	} while (running > 0 || next_download != downloads.end());
+	} while (running > 0 || small_file_it < big_file_it);
 	aborted = false;
 	LOG_DEBUG("download complete");
 abort:
