@@ -268,6 +268,9 @@ static bool setupDownload(CURLM* curlm, DownloadData* piece)
 	curl_easy_setopt(curle, CURLOPT_PIPEWAIT, 1L);
 	curl_easy_setopt(curle, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NO_REVOKE);
 
+	if (piece->download->noCache) {
+		piece->curlw->AddHeader("Cache-Control: no-cache");
+	}
 	if (!piece->download->validateTLS) {
 		LOG_DEBUG("Not Validating TLS");
 		curl_easy_setopt(curle, CURLOPT_SSL_VERIFYPEER, 0);

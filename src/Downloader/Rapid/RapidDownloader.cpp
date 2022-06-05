@@ -164,6 +164,7 @@ bool CRapidDownloader::UpdateReposGZ()
 	if ((fileSystem->fileExists(path)) && (!fileSystem->isOlder(path, REPO_MASTER_RECHECK_TIME)) && parse())
 		return true;
 	IDownload dl(path);
+	dl.noCache = true;
 	dl.addMirror(reposgzurl);
 	return httpDownload->download(&dl) && parse();
 }

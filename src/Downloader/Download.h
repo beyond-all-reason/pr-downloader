@@ -87,6 +87,7 @@ public:
 	std::string version;
 
 	bool validateTLS = true;
+	bool noCache = false;
 private:
 	int progress = 0;
 	std::vector<std::string> mirrors;

@@ -33,6 +33,7 @@ IDownload* CRepo::getDownload()
 		return nullptr;
 
 	IDownload* dl = new IDownload(tmpFile);
+	dl->noCache = true;
 	dl->addMirror(repourl + "/versions.gz");
 	return dl;
 }

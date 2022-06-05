@@ -169,10 +169,6 @@ CurlWrapper::CurlWrapper()
 	curl_easy_setopt(handle, CURLOPT_FOLLOWLOCATION, 1);
 	curl_easy_setopt(handle, CURLOPT_SSL_VERIFYPEER, verify_certificate ? 1 : 0);
 	curl_easy_setopt(handle, CURLOPT_SSL_VERIFYHOST, verify_certificate ? 2 : 0);
-
-	list = nullptr;
-	list = curl_slist_append(list, "Cache-Control: no-cache");
-	curl_easy_setopt(handle, CURLOPT_HTTPHEADER, list);
 }
 
 CurlWrapper::~CurlWrapper()
@@ -183,6 +179,11 @@ CurlWrapper::~CurlWrapper()
 	list = nullptr;
 	free(errbuf);
 	errbuf = nullptr;
+}
+
+void CurlWrapper::AddHeader(const std::string& header) {
+	list = curl_slist_append(list, header.c_str());
+	curl_easy_setopt(handle, CURLOPT_HTTPHEADER, list);
 }
 
 std::string CurlWrapper::escapeUrl(const std::string& url)
