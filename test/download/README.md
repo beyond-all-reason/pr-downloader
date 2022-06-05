@@ -52,6 +52,30 @@ as you see, we need to have the IP of Nginx container, we can get it with
 $ sudo podman container inspect rapid --format '{{.NetworkSettings.IPAddress}}'
 ```
 
+#### Add real package to repo
+
+We can use the `MakeZip` and `AddZip` to copy over some package from real
+installation to the test repo. Here we will copy `byar:test` package.
+
+1. Temporarily copy `versions.gz` from `rapid/repos.springrts.com/byar/versions.gz`
+   to the main root directory in installation, e.g.
+
+   ```
+   $ cp ~/Documents/Beyond\ All\ Reason/rapid/repos.springrts.com/byar/versions.gz ~/Documents/Beyond\ All\ Reason
+   ```
+
+2. Run `MakeZip` to create zip archive of package
+
+   ```
+   $ ./builddir/src/MakeZip ~/Documents/Beyond\ All\ Reason/ byar:test byar.zip
+   ```
+
+3. Add it to the `main` repository used for testing
+
+   ```
+   $ ./builddir/src/AddZip repo/main ~/byar.zip main:byar:test
+   ```
+
 ### Set up streamer
 
 If you want to set up also the rapid streamer, you need to build it yourself
