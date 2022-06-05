@@ -64,12 +64,21 @@ void show_help(const char* cmd)
 			LOG("\n");
 		}
 		append = true;
-		LOG("--%s", long_options[i].name);
+		LOG("  --%s", long_options[i].name);
 		if (long_options[i].has_arg != 0)
 			LOG(" <name>");
 		i++;
 	}
-	LOG("\n");
+	LOG("\n\n");
+	LOG("Environment variables:\n");
+	LOG("  PRD_RAPID_USE_STREAMER=[true]|false\n");
+	LOG("\tWhatever to use streamer.cgi for downloading.\n");
+	LOG("  PRD_RAPID_REPO_MASTER=[https://repos.springrts.com/repos.gz]\n");
+	LOG("\tURL of the rapid repo master\n");
+	LOG("  PRD_MAX_HTTP_REQS_PER_SEC=[0]\n");
+	LOG("\tLimit on number of requests per second for HTTP downloading, 0 = unlimited\n");
+	LOG("  PRD_DISABLE_CERT_CHECK=[false]|true\n");
+	LOG("\tAllows to disable TLS certificate validation, useful for testing.\n");
 	exit(1);
 }
 
