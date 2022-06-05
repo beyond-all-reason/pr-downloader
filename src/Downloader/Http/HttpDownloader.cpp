@@ -25,6 +25,7 @@
 #include <json/reader.h>
 
 #include "DownloadData.h"
+#include "Throttler.h"
 #include "FileSystem/FileSystem.h"
 #include "FileSystem/File.h"
 #include "FileSystem/HashMD5.h"
@@ -411,6 +412,20 @@ bool computeRetry(DownloadData* data) {
 	return true;
 }
 
+static unsigned getMaxReqsPerSecLimit() {
+	unsigned long max_req_per_sec = 0; // unlimited
+	const char* max_req_per_sec_env = std::getenv("PRD_MAX_HTTP_REQS_PER_SEC");
+	if (max_req_per_sec_env != nullptr) {
+		char* end;
+		max_req_per_sec = std::strtoul(max_req_per_sec_env, &end, 10);
+		if (max_req_per_sec == ULONG_MAX || *end != '\0') {
+			LOG_ERROR("PRD_MAX_HTTP_REQS_PER_SEC env variable value is not valid.");
+			return false;
+		}
+	}
+	return max_req_per_sec;
+}
+
 bool CHttpDownloader::download(std::list<IDownload*>& download,
                                int max_parallel)
 {
@@ -457,6 +472,10 @@ bool CHttpDownloader::download(std::list<IDownload*>& download,
 	};
 	std::priority_queue<DownloadData*, std::vector<DownloadData*>,
 	                    decltype(queue_comparator)> wait_queue(queue_comparator);
+	unsigned max_req_per_sec = getMaxReqsPerSecLimit();
+	Throttler throttler(max_req_per_sec,
+	                    std::min((unsigned)max_parallel,
+	                             std::max(max_req_per_sec / 10, 5U)));
 	do {
 		CURLMcode ret = curl_multi_perform(curlm, &running);
 		if (ret != CURLM_OK) {
@@ -480,7 +499,8 @@ bool CHttpDownloader::download(std::list<IDownload*>& download,
 		// If enough time passed for element in the wait_queue, retry the request.
 		running += wait_queue.size();
 		auto now = std::chrono::steady_clock::now();
-		while (!wait_queue.empty() && wait_queue.top()->next_retry <= now) {
+		while (!wait_queue.empty() && wait_queue.top()->next_retry <= now &&
+		       throttler.get_token()) {
 			if (!setupDownload(curlm, wait_queue.top())) {
 				goto abort;
 			}
@@ -488,7 +508,8 @@ bool CHttpDownloader::download(std::list<IDownload*>& download,
 		}
 
 		// Start more new requests up to so we have up to max_parallel happening.
-		for (; running < max_parallel && next_download != downloads.end(); ++running) {
+		for (; running < max_parallel && next_download != downloads.end() &&
+		       throttler.get_token(); ++running) {
 			if (!setupDownload(curlm, (*next_download).get())) {
 				goto abort;
 			}
@@ -500,7 +521,8 @@ bool CHttpDownloader::download(std::list<IDownload*>& download,
 			LOG_ERROR("curl_multi_poll, code %d.\n", ret);
 			goto abort;
 		}
-	} while (running > 0);
+		throttler.refill_bucket();
+	} while (running > 0 || next_download != downloads.end());
 	aborted = false;
 	LOG_DEBUG("download complete");
 abort:
