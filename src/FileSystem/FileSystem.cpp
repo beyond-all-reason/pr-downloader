@@ -270,9 +270,9 @@ bool CFileSystem::createSubdirs(const std::string& path)
 	return CreateDir(path);
 }
 
-std::string CFileSystem::getPoolFilename(const std::string& md5str, const std::string& pathBase) const
+std::string CFileSystem::getPoolFilename(const std::string& md5str) const
 {
-	return (pathBase.empty() ? fileSystem->getSpringDir() : pathBase)
+	return fileSystem->getSpringDir()
 	 + PATH_DELIMITER
 	 + "pool"
 	 + PATH_DELIMITER

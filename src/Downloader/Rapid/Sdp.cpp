@@ -381,6 +381,11 @@ bool CSdp::downloadStream()
 	return true;
 }
 
+std::string CSdp::getPoolFileUrl(const std::string& md5s) const
+{
+	return baseUrl + "/pool/" + md5s.substr(0, 2) + "/" + md5s.substr(2) + ".gz";
+}
+
 bool CSdp::downloadHTTP()
 {
 	std::unordered_set<std::string> md5_in_queue;
@@ -395,7 +400,7 @@ bool CSdp::downloadHTTP()
 			continue;
 		}
 		md5_in_queue.insert(fileMd5->toString());
-		std::string url = fileSystem->getPoolFilename(fileMd5->toString(), baseUrl);
+		std::string url = getPoolFileUrl(fileMd5->toString());
 		std::string filename = fileSystem->getPoolFilename(fileMd5->toString());
 		IDownload* dl = new IDownload(filename);
 		dl->addMirror(url);

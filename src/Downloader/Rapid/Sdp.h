@@ -103,6 +103,7 @@ private:
   ......zL..c`..`d.....K.n/....
   */
 	bool downloadStream();
+	std::string getPoolFileUrl(const std::string& md5str) const;
 	bool downloadHTTP();
 
 	std::string name;
