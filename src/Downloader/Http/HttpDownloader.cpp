@@ -9,7 +9,9 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <functional>
 #include <memory>
+#include <numeric>
 #include <queue>
 #include <random>
 #include <sstream>
@@ -321,8 +323,51 @@ static void cleanupDownload(CURLM* curlm, DownloadData* data)
 	}
 }
 
-bool CHttpDownloader::processMessages(CURLM* curlm,
-                                      std::vector<DownloadData*>* to_retry)
+struct HTTPStats {
+	long http_version = -1;
+	int num_errors = 0;
+	std::vector<std::chrono::microseconds> time_to_first_byte;
+	std::vector<std::chrono::microseconds> total_transfer_time;
+};
+
+static std::string curlHttpVersionToString(long version) {
+	switch (version) {
+		case CURL_HTTP_VERSION_1_0:
+			return "HTTP/1.0";
+		case CURL_HTTP_VERSION_1_1:
+			return "HTTP/1.1";
+		case CURL_HTTP_VERSION_2_0:
+			return "HTTP/2";
+		case CURL_HTTP_VERSION_3:
+			return "HTTP/3";
+		default:
+			char buf[50];
+			snprintf(buf, sizeof(buf), "HTTP/Unknown(%ld)", version);
+			return std::string(buf);
+	}
+}
+
+static std::string computeStats(std::vector<std::chrono::microseconds> in) {
+	assert(in.size() > 0);
+	char buf[200];
+	if (in.size() == 1) {
+		snprintf(buf, sizeof(buf), "%.3fms", (double)in[0].count() / 1000.0);
+		return std::string(buf);
+	}
+	std::vector<double> t(in.size());
+	std::transform(in.begin(), in.end(), t.begin(), [](std::chrono::microseconds i) {
+		return i.count() / 1000.0;
+	});
+	std::sort(t.begin(), t.end(), std::greater<double>());
+	double mean = std::accumulate(t.begin(), t.end(), 0.0) / t.size();
+	snprintf(buf, sizeof(buf), "[max: %.3fms 95%%: %.3fms median: %.3fms mean: %.3fms]",
+	         t[0], t[int(0.05 * t.size())], t[t.size() / 2], mean);
+	return std::string(buf);
+}
+
+static bool processMessages(CURLM* curlm,
+                            std::vector<DownloadData*>* to_retry,
+                            HTTPStats *stats)
 {
 	int msgs_left;
 	bool ok = true;
@@ -351,6 +396,22 @@ bool CHttpDownloader::processMessages(CURLM* curlm,
 						data->download->state = IDownload::STATE_FINISHED;
 					}
 				}
+
+				// Fill in stats for the transfer
+				curl_off_t ttfb, totalt;
+				long http_version;
+				curl_easy_getinfo(msg->easy_handle, CURLINFO_STARTTRANSFER_TIME_T, &ttfb);
+				curl_easy_getinfo(msg->easy_handle, CURLINFO_TOTAL_TIME_T , &totalt);
+				curl_easy_getinfo(msg->easy_handle, CURLINFO_HTTP_VERSION, &http_version);
+				if (stats->http_version != -1 && stats->http_version != http_version) {
+					LOG_WARN("Multiple http versions used for transfer, %s and %s",
+					         curlHttpVersionToString(stats->http_version).c_str(),
+					         curlHttpVersionToString(http_version).c_str());
+				}
+				stats->http_version = http_version;
+				stats->time_to_first_byte.emplace_back(ttfb);
+				stats->total_transfer_time.emplace_back(totalt);
+
 				break;
 			// We consider this list of errors worth retrying.
 			case CURLE_COULDNT_CONNECT:
@@ -368,6 +429,7 @@ bool CHttpDownloader::processMessages(CURLM* curlm,
 			case CURLE_HTTP_RETURNED_ERROR:
 				retry = true;
 			default:
+				++stats->num_errors;
 				curl_easy_getinfo(msg->easy_handle, CURLINFO_RESPONSE_CODE, &http_code);
 				// Let's not retry on client errors except for the 429 Too Many Requests
 				if (http_code >= 400 && http_code < 500 && http_code != 429) {
@@ -479,6 +541,7 @@ bool CHttpDownloader::download(std::list<IDownload*>& download,
 	auto big_file_it = downloads.end();
 
 	// Perform actual download using the Curl multi interface.
+	HTTPStats stats;
 	CURLM* curlm = curl_multi_init();
 	curl_multi_setopt(curlm, CURLMOPT_PIPELINING, CURLPIPE_MULTIPLEX);
 	curl_multi_setopt(curlm, CURLMOPT_MAX_TOTAL_CONNECTIONS, 5);
@@ -503,7 +566,7 @@ bool CHttpDownloader::download(std::list<IDownload*>& download,
 			goto abort;
 		}
 		to_retry.clear();
-		if (!processMessages(curlm, &to_retry)) {
+		if (!processMessages(curlm, &to_retry, &stats)) {
 			goto abort;
 		}
 
@@ -551,7 +614,10 @@ bool CHttpDownloader::download(std::list<IDownload*>& download,
 		}
 	} while (running > 0 || small_file_it < big_file_it);
 	aborted = false;
-	LOG_DEBUG("download complete");
+	LOG_INFO("Download: num files: %ld, protocol: %s, to first byte: %s, transfer: %s, num retried errors: %d",
+	         downloads.size(), curlHttpVersionToString(stats.http_version).c_str(),
+	         computeStats(stats.time_to_first_byte).c_str(),
+	         computeStats(stats.total_transfer_time).c_str(), stats.num_errors);
 abort:
 
 	// Cleanup

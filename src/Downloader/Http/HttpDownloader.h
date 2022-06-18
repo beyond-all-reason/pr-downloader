@@ -23,19 +23,6 @@ public:
 	static bool DownloadUrl(const std::string& url, std::string& res);
 	static bool ParseResult(const std::string& name, const std::string& json,
 				std::list<IDownload*>& res);
-
-private:
-	/**
-  *	process curl messages
-  *		- verify
-  *		- starts redownloads piece, when piece dl failed from some
-  *mirror
-  *		- keep some stats (mark broken mirrors, downloadspeed)
-  *	@returns false, when some fatal error occured -> abort
-  */
-	bool processMessages(CURLM* curlm, std::vector<DownloadData*>* to_retry);
-	DownloadData* getDataByHandle(const std::vector<DownloadData*>& downloads,
-				      const CURL* easy_handle) const;
 };
 
 #endif
