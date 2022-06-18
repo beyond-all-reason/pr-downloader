@@ -16,13 +16,13 @@ HashGzip::HashGzip(std::unique_ptr<IHash> hash)
 	strm.opaque = Z_NULL;
 	strm.avail_in = 0;
 	strm.next_in = Z_NULL;
-	int ret = inflateInit2(&strm, 32);
+	[[maybe_unused]] int ret = inflateInit2(&strm, 32);
 	assert(ret == Z_OK);
 }
 
 HashGzip::~HashGzip()
 {
-	int ret = inflateEnd(&strm);
+	[[maybe_unused]] int ret = inflateEnd(&strm);
 	assert(ret == Z_OK);
 }
 
@@ -31,7 +31,7 @@ void HashGzip::Init()
 	isset = false;
 	error = false;
 	stream_done = false;
-	int ret = inflateReset(&strm);
+	[[maybe_unused]] int ret = inflateReset(&strm);
 	assert(ret == Z_OK);
 	subhash->Init();
 }
