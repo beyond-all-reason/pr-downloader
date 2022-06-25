@@ -54,11 +54,11 @@ public:
 		STATE_FINISHED,    // piece downloaded successfully and verified
 	};
 	// What the hash the download is supposed to have.
-	std::unique_ptr<IHash> hash = nullptr;
+	std::unique_ptr<IHash> hash;
 	// To store the actual hash of the download. Need to be set by the
 	// caller because we don't know the concrete type.
-	std::unique_ptr<IHash> out_hash = nullptr;
-	std::unique_ptr<CFile> file = nullptr;
+	std::unique_ptr<IHash> out_hash;
+	std::unique_ptr<CFile> file;
 
 	/**
    *	file size

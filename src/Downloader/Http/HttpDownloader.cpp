@@ -212,9 +212,9 @@ static size_t multi_write_data(void* ptr, size_t size, size_t nmemb,
 		return -1;
 	data->download->state = IDownload::STATE_DOWNLOADING;
 	if (data->download->out_hash != nullptr) {
-		data->download->out_hash->Update((const char*)ptr, size * nmemb);
+		data->download->out_hash->Update(static_cast<const char*>(ptr), size * nmemb);
 	}
-	return data->download->file->Write((const char*)ptr, size * nmemb);
+	return data->download->file->Write(static_cast<const char*>(ptr), size * nmemb);
 }
 
 // Computes the exponential retry duration to wait before making next request.
@@ -280,9 +280,8 @@ static bool setupDownload(CURLM* curlm, DownloadData* piece)
 	// this sets the header If-Modified-Since -> downloads only when remote file
 	// is newer than local file
 	const long timestamp = piece->download->file->GetTimestamp();
-	if ((timestamp >= 0) &&
-	    (piece->download->hash ==
-	     nullptr)) { // timestamp known + hash not known -> only dl when changed
+	if (timestamp >= 0 && piece->download->hash == nullptr) {
+		// timestamp known + hash not known -> only dl when changed
 		curl_easy_setopt(curle, CURLOPT_TIMECONDITION, CURL_TIMECOND_IFMODSINCE);
 		curl_easy_setopt(curle, CURLOPT_TIMEVALUE, timestamp);
 		curl_easy_setopt(curle, CURLOPT_FILETIME, 1);
@@ -341,9 +340,7 @@ static std::string curlHttpVersionToString(long version) {
 		case CURL_HTTP_VERSION_3:
 			return "HTTP/3";
 		default:
-			char buf[50];
-			snprintf(buf, sizeof(buf), "HTTP/Unknown(%ld)", version);
-			return std::string(buf);
+			return "HTTP/Unknown(" + std::to_string(version) + ")";
 	}
 }
 
@@ -351,7 +348,7 @@ static std::string computeStats(std::vector<std::chrono::microseconds> in) {
 	assert(in.size() > 0);
 	char buf[200];
 	if (in.size() == 1) {
-		snprintf(buf, sizeof(buf), "%.3fms", (double)in[0].count() / 1000.0);
+		snprintf(buf, sizeof(buf), "%.3fms", static_cast<double>(in[0].count()) / 1000.0);
 		return std::string(buf);
 	}
 	std::vector<double> t(in.size());
@@ -361,7 +358,7 @@ static std::string computeStats(std::vector<std::chrono::microseconds> in) {
 	std::sort(t.begin(), t.end(), std::greater<double>());
 	double mean = std::accumulate(t.begin(), t.end(), 0.0) / t.size();
 	snprintf(buf, sizeof(buf), "[max: %.3fms 95%%: %.3fms median: %.3fms mean: %.3fms]",
-	         t[0], t[int(0.05 * t.size())], t[t.size() / 2], mean);
+	         t[0], t[static_cast<int>(0.05 * t.size())], t[t.size() / 2], mean);
 	return std::string(buf);
 }
 
@@ -455,7 +452,7 @@ static bool processMessages(CURLM* curlm,
 }
 
 bool computeRetry(DownloadData* data) {
-	auto now = std::chrono::steady_clock::now();
+	const auto now = std::chrono::steady_clock::now();
 	using namespace std::chrono_literals;
 	constexpr int retry_num_limit = 10;
 	++data->retry_num;
@@ -552,9 +549,9 @@ bool CHttpDownloader::download(std::list<IDownload*>& download,
 	};
 	std::priority_queue<DownloadData*, std::vector<DownloadData*>,
 	                    decltype(queue_comparator)> wait_queue(queue_comparator);
-	unsigned max_req_per_sec = getMaxReqsPerSecLimit();
+	const unsigned max_req_per_sec = getMaxReqsPerSecLimit();
 	Throttler throttler(max_req_per_sec,
-	                    std::min((unsigned)max_parallel,
+	                    std::min(static_cast<unsigned>(max_parallel),
 	                             std::max(max_req_per_sec / 10, 5U)));
 
 	int running = 0;   // Number of currently running downloads + waiting for retry

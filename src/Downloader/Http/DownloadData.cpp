@@ -17,11 +17,12 @@ void DownloadData::updateProgress(double total, double done)
 		// Because we can have only approximate size, we map real size
 		// to the approximate size scale to keep the total during
 		// the download constant.
-		unsigned int old_progress = download->getProgress();
-		unsigned int progress = done;
+		const unsigned int old_progress = download->getProgress();
+		const unsigned int progress = done;
 		download->updateProgress(progress);
-		double at = (double)approx_size / total;
-		data_pack->progress += (int)(at * progress) - (int)(at * old_progress);
+		const double at = static_cast<double>(approx_size) / total;
+		data_pack->progress += static_cast<int>(at * progress) -
+		                       static_cast<int>(at * old_progress);
 
 		if (IDownloader::listener != nullptr) {
 			IDownloader::listener(data_pack->progress, data_pack->size);
@@ -33,6 +34,6 @@ void DownloadData::updateProgress(double total, double done)
 		if (IDownloader::listener != nullptr) {
 			IDownloader::listener(done, total);
 		}
-		LOG_PROGRESS(done, total, (int)done >= total);
+		LOG_PROGRESS(done, total, done >= total);
 	}
 }
