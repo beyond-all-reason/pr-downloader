@@ -77,6 +77,8 @@ void show_help(const char* cmd)
 	LOG("\tURL of the rapid repo master\n");
 	LOG("  PRD_MAX_HTTP_REQS_PER_SEC=[0]\n");
 	LOG("\tLimit on number of requests per second for HTTP downloading, 0 = unlimited\n");
+	LOG("  PRD_HTTP_SEARCH_URL=[https://springfiles.springrts.com/json.php]\n");
+	LOG("\tURL of springfiles used to download maps etc.\n");
 	LOG("  PRD_DISABLE_CERT_CHECK=[false]|true\n");
 	LOG("\tAllows to disable TLS certificate validation, useful for testing.\n");
 	exit(1);

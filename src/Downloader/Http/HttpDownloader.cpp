@@ -91,7 +91,13 @@ bool CHttpDownloader::DownloadUrl(const std::string& url, std::string& res)
 static std::string getRequestUrl(const std::string& name,
 				 DownloadEnum::Category cat)
 {
-	std::string url = HTTP_SEARCH_URL + std::string("?");
+	std::string http_search_url = HTTP_SEARCH_URL;
+	const char* http_search_url_env = std::getenv("PRD_HTTP_SEARCH_URL");
+	if (http_search_url_env != nullptr) {
+		http_search_url = http_search_url_env;
+	}
+
+	std::string url = http_search_url + std::string("?");
 	if (cat != DownloadEnum::CAT_NONE) {
 		url += "category=" + DownloadEnum::getCat(cat) + std::string("&");
 	}
