@@ -22,13 +22,14 @@ add_library(Downloader STATIC
 	Downloader/Rapid/Sdp.cpp
 	Downloader/Http/HttpDownloader.cpp
 	Downloader/Http/DownloadData.cpp
+	Downloader/Http/Throttler.cpp
 	Downloader/CurlWrapper.cpp
 	Downloader/Download.cpp
 	Downloader/IDownloader.cpp
-	Downloader/Mirror.cpp
 	Downloader/DownloadEnum.cpp
 	FileSystem/FileSystem.cpp
 	FileSystem/File.cpp
+	FileSystem/HashGzip.cpp
 	FileSystem/HashMD5.cpp
 	FileSystem/HashSHA1.cpp
 	FileSystem/IHash.cpp

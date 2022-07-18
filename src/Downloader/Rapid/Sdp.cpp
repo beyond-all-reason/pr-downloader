@@ -1,11 +1,13 @@
 /* This file is part of pr-downloader (GPL v2 or later), see the LICENSE file */
 
+#include <memory>
 #include <string>
 #include <string.h>
 #include <stdio.h>
 #include <curl/curl.h>
-#include <stdlib.h>
+#include <cstdlib>
 #include <errno.h>
+#include <unordered_set>
 
 #include "Sdp.h"
 #include "RapidDownloader.h"
@@ -14,6 +16,7 @@
 #include "FileSystem/FileSystem.h"
 #include "FileSystem/FileData.h"
 #include "FileSystem/HashMD5.h"
+#include "FileSystem/HashGzip.h"
 #include "FileSystem/File.h"
 #include "Downloader/CurlWrapper.h"
 #include "Downloader/Download.h"
@@ -83,7 +86,9 @@ bool CSdp::download(IDownload* dl)
 	if ((!fileSystem->fileExists(sdpPath)) || (!fileSystem->parseSdp(sdpPath, files))) {// parse downloaded file
 		if (!downloadSelf(dl))
 			return false;
-		fileSystem->parseSdp(sdpPath, files);
+		if (!fileSystem->parseSdp(sdpPath, files)) {
+			return false;
+		}
 	}
 
 	int i = 0;
@@ -100,7 +105,7 @@ bool CSdp::download(IDownload* dl)
 		} else {
 			filedata.download = false;
 		}
-		if (i % 30 == 0) {
+		if (i % 500 == 0) {
 			LOG_DEBUG("%d/%d checked", i, (int)files.size());
 		}
 	}
@@ -112,7 +117,15 @@ bool CSdp::download(IDownload* dl)
 			LOG_ERROR("Creating pool directories failed");
 			return false;
 		}
-		if (!downloadStream()) {
+
+		bool res;
+		const char* use_streamer_env = std::getenv("PRD_RAPID_USE_STREAMER");
+		if (use_streamer_env != nullptr && std::string(use_streamer_env) == "false") {
+			res = downloadHTTP();
+		} else {
+			res = downloadStream();
+		}
+		if (!res) {
 			LOG_ERROR("Couldn't download files for %s", md5.c_str());
 			fileSystem->removeFile(sdpPath);
 			return false;
@@ -303,7 +316,7 @@ static int progress_func(CSdp& sdp, double TotalToDownload,
 	for (auto it : sdp.m_download->map_rapid_progress) {
 		total += it.second;
 	}
-	sdp.m_download->progress = total;
+	sdp.m_download->updateProgress(total);
 	if (TotalToDownload == NowDownloaded) // force output when download is
 					      // finished
 		LOG_PROGRESS(NowDownloaded, TotalToDownload, true);
@@ -366,4 +379,37 @@ bool CSdp::downloadStream()
 
 
 	return true;
+}
+
+std::string CSdp::getPoolFileUrl(const std::string& md5s) const
+{
+	return baseUrl + "/pool/" + md5s.substr(0, 2) + "/" + md5s.substr(2) + ".gz";
+}
+
+bool CSdp::downloadHTTP()
+{
+	std::unordered_set<std::string> md5_in_queue;
+	std::list<IDownload*> dls;
+	for (FileData& fd: files) {
+		if (!fd.download) continue;
+		auto fileMd5 = std::make_unique<HashMD5>();
+		fileMd5->Set(fd.md5, sizeof(fd.md5));
+		// Multiple files in sdp can map to a single file in the pool,
+		// we need to skip duplicates.
+		if (md5_in_queue.find(fileMd5->toString()) != md5_in_queue.end()) {
+			continue;
+		}
+		md5_in_queue.insert(fileMd5->toString());
+		std::string url = getPoolFileUrl(fileMd5->toString());
+		std::string filename = fileSystem->getPoolFilename(fileMd5->toString());
+		IDownload* dl = new IDownload(filename);
+		dl->addMirror(url);
+		dl->approx_size = fd.size;
+		dl->hash = std::move(fileMd5);
+		dl->out_hash = std::make_unique<HashGzip>(std::make_unique<HashMD5>());
+		dls.push_back(dl);
+	}
+	bool ok = httpDownload->download(dls, 100);
+	IDownloader::freeResult(dls);
+	return ok;
 }

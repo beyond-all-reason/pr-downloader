@@ -14,15 +14,12 @@
 #include <list>
 
 // TODO: Many of these enums are not implemented.
-// e.g. RAPID_VALIDATE_DELETE, RAPID_SEARCH, WIDGET_SEARCH...
+// e.g. RAPID_VALIDATE_DELETE, ...
 enum {
 	RAPID_DOWNLOAD = 0,
 	RAPID_VALIDATE,
 	RAPID_VALIDATE_DELETE,
-	RAPID_SEARCH,
-	HTTP_SEARCH,
 	HTTP_DOWNLOAD,
-	WIDGET_SEARCH,
 	FILESYSTEM_WRITEPATH,
 	FILESYSTEM_DUMPSDP,
 	FILESYSTEM_VALIDATESDP,
@@ -43,7 +40,6 @@ static struct option long_options[] = {
     {"dump-sdp", 1, 0, FILESYSTEM_DUMPSDP},
     {"validate-sdp", 1, 0, FILESYSTEM_VALIDATESDP},
     {"http-download", 1, 0, HTTP_DOWNLOAD},
-    {"http-search", 1, 0, HTTP_SEARCH},
     {"download-map", 1, 0, DOWNLOAD_MAP},
     {"download-game", 1, 0, DOWNLOAD_GAME},
     {"download-engine", 1, 0, DOWNLOAD_ENGINE},
@@ -68,12 +64,23 @@ void show_help(const char* cmd)
 			LOG("\n");
 		}
 		append = true;
-		LOG("--%s", long_options[i].name);
+		LOG("  --%s", long_options[i].name);
 		if (long_options[i].has_arg != 0)
 			LOG(" <name>");
 		i++;
 	}
-	LOG("\n");
+	LOG("\n\n");
+	LOG("Environment variables:\n");
+	LOG("  PRD_RAPID_USE_STREAMER=[true]|false\n");
+	LOG("\tWhatever to use streamer.cgi for downloading.\n");
+	LOG("  PRD_RAPID_REPO_MASTER=[https://repos.springrts.com/repos.gz]\n");
+	LOG("\tURL of the rapid repo master\n");
+	LOG("  PRD_MAX_HTTP_REQS_PER_SEC=[0]\n");
+	LOG("\tLimit on number of requests per second for HTTP downloading, 0 = unlimited\n");
+	LOG("  PRD_HTTP_SEARCH_URL=[https://springfiles.springrts.com/json.php]\n");
+	LOG("\tURL of springfiles used to download maps etc.\n");
+	LOG("  PRD_DISABLE_CERT_CHECK=[false]|true\n");
+	LOG("\tAllows to disable TLS certificate validation, useful for testing.\n");
 	exit(1);
 }
 
@@ -97,21 +104,6 @@ bool download(DownloadEnum::Category cat, const char* name)
 		DownloadAdd(i);
 	}
 	show_results(count);
-	return true;
-}
-
-bool search(DownloadEnum::Category cat, const char* name)
-{
-	const int count = DownloadSearch(cat, name);
-	if (count <= 0) {
-		LOG_ERROR("Couldn't find %s", name);
-		return false;
-	}
-	downloadInfo dl;
-	for (int i = 0; i < count; i++) {
-		DownloadGetInfo(i, dl);
-		LOG("%s\n", dl.filename);
-	}
 	return true;
 }
 
@@ -207,11 +199,6 @@ int main(int argc, char** argv)
 					LOG_ERROR("No engine version found for %s (%s)", optarg, DownloadEnum::getCat(getPlatformEngineCat()).c_str());
 					res = false;
 				}
-				break;
-			}
-			case HTTP_SEARCH: {
-				LOG_ERROR("Not implemented");
-				res = false;
 				break;
 			}
 			case HELP: {

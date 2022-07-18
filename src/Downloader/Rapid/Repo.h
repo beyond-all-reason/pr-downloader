@@ -20,7 +20,7 @@ public:
           returns download for a repo file
                   returns true if file needs to be downloaded
   */
-	bool getDownload(IDownload& dl);
+	IDownload* getDownload();
 
 	/**
   parse a repo file (versions.gz)

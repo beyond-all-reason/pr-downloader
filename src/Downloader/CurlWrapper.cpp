@@ -31,6 +31,7 @@ static std::string GetCAFilePath()
 }
 
 static curl_sslbackend backend = CURLSSLBACKEND_NONE;
+static bool verify_certificate = true;
 
 static void GetTLSBackend()
 {
@@ -166,10 +167,8 @@ CurlWrapper::CurlWrapper()
 	curl_easy_setopt(handle, CURLOPT_USERAGENT, getVersion());
 	curl_easy_setopt(handle, CURLOPT_FAILONERROR, true);
 	curl_easy_setopt(handle, CURLOPT_FOLLOWLOCATION, 1);
-
-	list = nullptr;
-	list = curl_slist_append(list, "Cache-Control: no-cache");
-	curl_easy_setopt(handle, CURLOPT_HTTPHEADER, list);
+	curl_easy_setopt(handle, CURLOPT_SSL_VERIFYPEER, verify_certificate ? 1 : 0);
+	curl_easy_setopt(handle, CURLOPT_SSL_VERIFYHOST, verify_certificate ? 2 : 0);
 }
 
 CurlWrapper::~CurlWrapper()
@@ -180,6 +179,11 @@ CurlWrapper::~CurlWrapper()
 	list = nullptr;
 	free(errbuf);
 	errbuf = nullptr;
+}
+
+void CurlWrapper::AddHeader(const std::string& header) {
+	list = curl_slist_append(list, header.c_str());
+	curl_easy_setopt(handle, CURLOPT_HTTPHEADER, list);
 }
 
 std::string CurlWrapper::escapeUrl(const std::string& url)
@@ -211,6 +215,10 @@ void CurlWrapper::InitCurl()
 	curl_global_init(CURL_GLOBAL_ALL);
 	if (backend != CURLSSLBACKEND_SCHANNEL) {
 		ValidateCaFile(GetCAFilePath());
+	}
+	const char* cert_check_env = std::getenv("PRD_DISABLE_CERT_CHECK");
+	if (cert_check_env != nullptr && std::string(cert_check_env) == "true") {
+		verify_certificate = false;
 	}
 }
 

@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <string>
 #include <string.h>
+#include <cstdlib>
 #include <list>
 #include <zlib.h>
 #include <algorithm> //std::min
@@ -22,8 +23,13 @@
 #undef max
 
 CRapidDownloader::CRapidDownloader()
-    : reposgzurl(REPO_MASTER)
 {
+	char* master_repo_env = std::getenv("PRD_RAPID_REPO_MASTER");
+	if (master_repo_env == nullptr) {
+		reposgzurl = REPO_MASTER;
+	} else {
+		reposgzurl = master_repo_env;
+	}
 }
 
 void CRapidDownloader::addRemoteSdp(CSdp&& sdp)
@@ -158,6 +164,7 @@ bool CRapidDownloader::UpdateReposGZ()
 	if ((fileSystem->fileExists(path)) && (!fileSystem->isOlder(path, REPO_MASTER_RECHECK_TIME)) && parse())
 		return true;
 	IDownload dl(path);
+	dl.noCache = true;
 	dl.addMirror(reposgzurl);
 	return httpDownload->download(&dl) && parse();
 }
@@ -228,9 +235,8 @@ bool CRapidDownloader::updateRepos(const std::string& searchstr)
 		if (tag != "" && repo.getShortName() != tag) {
 			continue;
 		}
-		IDownload* dl = new IDownload();
-		if (!repo.getDownload(*dl)) {
-			delete dl;
+		IDownload* dl = repo.getDownload();
+		if (dl == nullptr) {
 			continue;
 		}
 		usedrepos.push_back(&repo);

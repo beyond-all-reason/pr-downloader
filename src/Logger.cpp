@@ -4,7 +4,7 @@
 
 #include <stdio.h>
 #include <stdarg.h>
-#include <time.h>
+#include <chrono>
 
 // Logging functions in standalone mode
 // prdLogRaw is supposed to flush after printing (mostly to stdout/err
@@ -89,16 +89,15 @@ extern void L_LOG(const char* fileName, int line, const char* funName,
 
 extern void LOG_PROGRESS(long done, long total, bool forceOutput)
 {
-	static time_t lastlogtime = 0;
+	static std::chrono::steady_clock::time_point lastlogtime;
 	static float lastPercentage = 0.0f;
 
 	if (!logEnabled) {
 		return;
 	}
 
-	const time_t now = time(nullptr);
-
-	if (lastlogtime < now) {
+	const auto now = std::chrono::steady_clock::now();
+	if (now - lastlogtime > std::chrono::milliseconds(150)) {
 		lastlogtime = now;
 	} else {
 		if (!forceOutput)

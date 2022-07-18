@@ -7,7 +7,6 @@
 #include "CurlWrapper.h"
 #include "Util.h"
 #include "Logger.h"
-#include "Mirror.h"
 
 class IDownloader;
 

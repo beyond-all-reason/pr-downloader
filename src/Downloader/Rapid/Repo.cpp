@@ -20,7 +20,7 @@ CRepo::CRepo(const std::string& repourl, const std::string& _shortname,
 {
 }
 
-bool CRepo::getDownload(IDownload& dl)
+IDownload* CRepo::getDownload()
 {
 	std::string tmp;
 	urlToPath(repourl, tmp);
@@ -30,11 +30,12 @@ bool CRepo::getDownload(IDownload& dl)
 	fileSystem->createSubdirs(CFileSystem::DirName(tmpFile));
 	// first try already downloaded file, as repo master file rarely changes
 	if ((fileSystem->fileExists(tmpFile)) && !fileSystem->isOlder(tmpFile, REPO_RECHECK_TIME))
-		return false;
+		return nullptr;
 
-	dl = IDownload(tmpFile);
-	dl.addMirror(repourl + "/versions.gz");
-	return true;
+	IDownload* dl = new IDownload(tmpFile);
+	dl->noCache = true;
+	dl->addMirror(repourl + "/versions.gz");
+	return dl;
 }
 
 bool CRepo::parse()
