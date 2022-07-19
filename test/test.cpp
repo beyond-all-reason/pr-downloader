@@ -39,7 +39,7 @@ BOOST_AUTO_TEST_CASE(HashGzipTest)
 	HashGzip gzip_hash(std::make_unique<HashMD5>());
 	gzip_hash.Init();
 	for (int i = 0; i < input_size; ++i) {
-		gzip_hash.Update(static_cast<char*>(&input[i]), 1);
+		gzip_hash.Update(reinterpret_cast<char*>(&input[i]), 1);
 	}
 	gzip_hash.Final();
 	BOOST_CHECK(gzip_hash.compare(&md5_hash));
@@ -48,7 +48,7 @@ BOOST_AUTO_TEST_CASE(HashGzipTest)
 	input[100] = 20;
 	input[101] = 13;
 	gzip_hash.Init();
-	gzip_hash.Update(static_cast<char*>(input), input_size);
+	gzip_hash.Update(reinterpret_cast<char*>(input), input_size);
 	gzip_hash.Final();
 	BOOST_CHECK(gzip_hash.get(0) == 255);
 }
