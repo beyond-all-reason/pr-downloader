@@ -535,6 +535,43 @@ class TestDownloading(unittest.TestCase):
         with self.server.serve():
             self.assertEqual(self.call_rapid_download('testrepo:pkg:1'), 0)
 
+    def test_no_partial_overrides_to_files(self) -> None:
+        repo = self.rapid.add_repo('rep1')
+        archive = repo.add_archive('pkg:1')
+        archive.add_file('a.txt', b'a')
+        repo = self.rapid.add_repo('rep2')
+        archive = repo.add_archive('pkg:2')
+        archive.add_file('b.txt', b'b')
+        self.rapid.save(self.serving_root)
+
+        with self.server.serve():
+            self.assertEqual(self.call_rapid_download('rep1:pkg:1'), 0)
+
+        self.rapid.repos = {}
+        self.rapid.__final_hash = None
+        repo = self.rapid.add_repo('rep3')
+        archive = repo.add_archive('pkg:1')
+        archive.add_file('c.txt', b'c')
+        self.rapid.save(self.serving_root)
+
+        # This is hardcoding implementation specific path of pr-downloader
+        # so it's not the best, but that's actual failure case <shrug>
+        dest_repogz = os.path.join(
+            self.dest_root,
+            f'rapid/{self.server.server_address[0]}-{self.server.server_address[1]}/repos.gz'
+        )
+
+        # Make sure that pr-downloader will refresh repo
+        os.utime(dest_repogz, (0, 0))
+
+        with self.server.serve():
+            self.call_rapid_download('rep2:pkg:1')
+
+        with open(dest_repogz, 'rb') as f:
+            h = hashlib.blake2b(f.read()).digest()
+
+        self.assertEqual(h, self.rapid.final_hash)
+
     # TODO(marekr): Fix bugs that are being reproduced by the tests below.
 
     # def test_streamer_not_returning_all_files_fails(self) -> None:
@@ -549,35 +586,6 @@ class TestDownloading(unittest.TestCase):
     #     with self.server.serve():
     #         self.assertNotEqual(
     #             self.call_rapid_download('testrepo:pkg:1'), 0)
-
-    # def test_no_partial_overrides_to_files(self) -> None:
-    #     repo = self.rapid.add_repo('rep1')
-    #     archive = repo.add_archive('pkg:1')
-    #     archive.add_file('a.txt', b'a')
-    #     repo = self.rapid.add_repo('rep2')
-    #     archive = repo.add_archive('pkg:2')
-    #     archive.add_file('b.txt', b'b')
-    #     self.rapid.save(self.serving_root)
-
-    #     with self.server.serve():
-    #         self.assertEqual(self.call_rapid_download('rep1:pkg:1'), 0)
-
-    #     self.rapid.repos = {}
-    #     repo = self.rapid.add_repo('rep3')
-    #     archive = repo.add_archive('pkg:1')
-    #     archive.add_file('c.txt', b'c')
-    #     self.rapid.save(self.serving_root)
-
-    #     with self.server.serve():
-    #         self.call_rapid_download('rep2:pkg:1')
-
-    #     # This is hardcoding implementation specific path of pr-downloader
-    #     # so it's not the best, but that's actual failure case <shrug>
-    #     dest_repogz = os.path.join(self.dest_root, f'rapid/{self.server.server_address[0]}-{self.server.server_address[1]}/repos.gz')
-    #     with open(dest_repogz, 'rb') as f:
-    #         h = hashlib.blake2b(f.read()).digest()
-
-    #     self.assertEqual(h, self.rapid.final_hash)
 
 
 if __name__ == '__main__':

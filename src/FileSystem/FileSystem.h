@@ -136,6 +136,8 @@ public:
 
 	static long getFileSize(const std::string& path);
 
+	static long getFileTimestamp(const std::string& path);
+
 private:
 	bool portableDownload = false;
 	std::list<FileData> mods;

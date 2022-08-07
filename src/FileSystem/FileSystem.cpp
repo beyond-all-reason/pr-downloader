@@ -28,6 +28,7 @@
 #else
 #include <unistd.h>
 #include <sys/statvfs.h>
+#include <sys/stat.h>
 #include <errno.h>
 #endif
 
@@ -674,4 +675,20 @@ long CFileSystem::getFileSize(const std::string& path)
 	long size = ftell(f);
 	fclose(f);
 	return size;
+}
+
+long CFileSystem::getFileTimestamp(const std::string& path)
+{
+#if defined(__WIN32__) || defined(_MSC_VER)
+	struct _stat sb;
+	int res = _wstat(s2ws(path).c_str(), &sb);
+#else
+	struct stat sb;
+	int res = stat(path.c_str(), &sb);
+#endif
+	if (res != 0) {
+		LOG_ERROR("Couldn't get timestamp of file %s: %s", path.c_str(), strerror(errno));
+		return -1;
+	}
+	return sb.st_mtime;
 }

@@ -283,14 +283,16 @@ static bool setupDownload(CURLM* curlm, DownloadData* piece)
 		LOG_DEBUG("Not Validating TLS");
 		curl_easy_setopt(curle, CURLOPT_SSL_VERIFYPEER, 0);
 	}
-	// this sets the header If-Modified-Since -> downloads only when remote file
-	// is newer than local file
-	const long timestamp = piece->download->file->GetTimestamp();
-	if (timestamp >= 0 && piece->download->hash == nullptr) {
-		// timestamp known + hash not known -> only dl when changed
-		curl_easy_setopt(curle, CURLOPT_TIMECONDITION, CURL_TIMECOND_IFMODSINCE);
-		curl_easy_setopt(curle, CURLOPT_TIMEVALUE, timestamp);
-		curl_easy_setopt(curle, CURLOPT_FILETIME, 1);
+	if (fileSystem->fileExists(piece->download->name)) {
+		// this sets the header If-Modified-Since -> downloads only when remote file
+		// is newer than local file
+		const long timestamp = fileSystem->getFileTimestamp(piece->download->name);
+		if (timestamp >= 0 && piece->download->hash == nullptr) {
+			// timestamp known + hash not known -> only dl when changed
+			curl_easy_setopt(curle, CURLOPT_TIMECONDITION, CURL_TIMECOND_IFMODSINCE);
+			curl_easy_setopt(curle, CURLOPT_TIMEVALUE, timestamp);
+			curl_easy_setopt(curle, CURLOPT_FILETIME, 1);
+		}
 	}
 
 	curl_multi_add_handle(curlm, curle);
@@ -302,24 +304,12 @@ static void cleanupDownload(CURLM* curlm, DownloadData* data)
 	auto dl = data->download;
 
 	if (dl->file != nullptr) {
-		bool discard = true;
-		switch (dl->state) {
-			case IDownload::STATE_NONE:
-				// We haven't writen any data, so drop only if it's a entirely new file.
-				discard = dl->file->IsNewFile();
-				break;
-			case IDownload::STATE_DOWNLOADING:
-				// Some other error interrupted overall transfer (this or other file).
-				// We drop file because it's not in a consistent state after partial write.
-				dl->state = IDownload::STATE_FAILED;
-			case IDownload::STATE_FAILED:
-				// Something went wrong with download, we drop the file.
-				discard = true;
-				break;
-			case IDownload::STATE_FINISHED:
-				discard = false;
+		if (dl->state == IDownload::STATE_DOWNLOADING) {
+			// Some other error interrupted overall transfer (this or other file).
+			dl->state = IDownload::STATE_FAILED;
 		}
-		dl->file->Close(discard);
+		// Drop temp written file when downloading didn't succeed.
+		dl->file->Close(/*discard=*/dl->state != IDownload::STATE_FINISHED || data->force_discard);
 		dl->file = nullptr;
 	}
 	if (data->curlw != nullptr) {
@@ -387,7 +377,11 @@ static bool processMessages(CURLM* curlm,
 		switch (msg->data.result) {
 			case CURLE_OK:
 				curl_easy_getinfo(msg->easy_handle, CURLINFO_RESPONSE_CODE, &http_code);
-				if (http_code == 304 || data->download->out_hash == nullptr) {
+				if (http_code == 304) {
+					data->download->state = IDownload::STATE_FINISHED;
+					// To not override existing file with empty one.
+					data->force_discard = true;
+				} else if (data->download->out_hash == nullptr) {
 					data->download->state = IDownload::STATE_FINISHED;
 				} else {
 					// Verify that hash matches with expected when we are done.

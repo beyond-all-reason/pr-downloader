@@ -166,7 +166,7 @@ static bool OpenNextFile(CSdp& sdp)
 		LOG_ERROR("couldn't open %s", fd.name.c_str());
 		return false;
 	}
-	sdp.file_handle->Open(sdp.file_name, fd.compsize);
+	sdp.file_handle->Open(sdp.file_name);
 	sdp.file_pos = 0;
 	return true;
 }
