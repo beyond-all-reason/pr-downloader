@@ -33,6 +33,7 @@ public:
 	int retry_num = 0;
 	std::chrono::seconds retry_after_from_server{0};
 	std::chrono::steady_clock::time_point next_retry;
+	bool force_discard = false;
 
 	void updateProgress(double total, double done);
 };
