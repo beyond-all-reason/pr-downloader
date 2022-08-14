@@ -2,6 +2,7 @@
 
 #include <curl/curl.h>
 #include <cstring>
+#include <array>
 
 #include "CurlWrapper.h"
 #include "Version.h"
@@ -10,11 +11,6 @@
 #include "FileSystem/File.h"
 #include "IDownloader.h"
 #include "Logger.h"
-
-constexpr const char* cacertpem = "https://curl.se/ca/cacert.pem"; // The old URL was broken: https://springrts.com/dl/cacert.pem
-constexpr const char* cacertfile = "cacert.pem";
-//constexpr const char* cacertsha1 = "fe1e06f7048b78dbe7015c1c043de957251181db";
-constexpr const char* capath = "/etc/ssl/certs";
 
 #ifndef CURL_VERSION_BITS
 #define CURL_VERSION_BITS(x, y, z) ((x) << 16 | (y) << 8 | (z))
@@ -25,40 +21,9 @@ constexpr const char* capath = "/etc/ssl/certs";
 	(LIBCURL_VERSION_NUM >= CURL_VERSION_BITS(x, y, z))
 #endif
 
-static std::string GetCAFilePath()
-{
-	return fileSystem->getSpringDir() + PATH_DELIMITER + cacertfile;
-}
-
-static curl_sslbackend backend = CURLSSLBACKEND_NONE;
 static bool verify_certificate = true;
-
-static void GetTLSBackend()
-{
-#if CURL_AT_LEAST_VERSION(7,60,0)
-	const curl_ssl_backend **list;
-	const CURLsslset res = curl_global_sslset(static_cast<curl_sslbackend>(-1), nullptr, &list);
-
-	if (res != CURLsslset::CURLSSLSET_OK) {
-		LOG_WARN("SSL backend warning/error (%d)", static_cast<int>(res));
-	}
-
-	for(int i = 0; list[i]; i++) {
-		LOG_INFO("SSL backend #%d: '%s' (ID: %d)", i, list[i]->name, list[i]->id);
-		if (backend == CURLSSLBACKEND_NONE) { // use first as res
-			backend = list[i]->id;
-		} else {
-			LOG_WARN("Multiple SSL backends, this will very likely fail!");
-		}
-	}
-#else
-	#ifndef _MSVC_LANG
-		#warning Compiling without full curl support: please upgrade to libcurl >= 7.60
-	#endif // !_MSVC_LANG
-#endif
-}
-
-
+static const char* certDir = nullptr;
+static const char* certFile = nullptr;
 
 static void DumpVersion()
 {
@@ -68,80 +33,72 @@ static void DumpVersion()
 	}
 }
 
-bool CurlWrapper::VerifyFile(const std::string& path)
+static void ConfigureCertificates()
 {
-	if (!fileSystem->fileExists(path))
-		return false;
-	if (fileSystem->getFileSize(path) <= 5120) { // With a broken URL the downloaded file contains an HTML document with Apache redirect
-		LOG_INFO("%s file size is too small (probably broken), redownloading" ,path.c_str());
-		fileSystem->removeFile(path); // Just downloading the file again doesn't overwrite it
-		return false;
+	certFile = std::getenv("SSL_CERT_FILE");
+	certDir = std::getenv("SSL_CERT_DIR");
+
+#if defined(__linux__) && defined(PRD_CURL_SEARCH_CERTS)
+	// This code is needed because curl library can be statically linked and then
+	// the default, determined during build, certificate location can be
+	// incorrect, see https://curl.se/mail/lib-2022-05/0038.html for more details.
+	// To resolve this, we go over known paths in different linux distributions
+	// to identify certificate file location.
+
+	// Paths from https://go.dev/src/crypto/x509/root_linux.go
+	std::array<const char*, 6> certFiles = {
+		"/etc/ssl/certs/ca-certificates.crt",                // Debian/Ubuntu/Gentoo etc.
+		"/etc/pki/tls/certs/ca-bundle.crt",                  // Fedora/RHEL 6
+		"/etc/ssl/ca-bundle.pem",                            // OpenSUSE
+		"/etc/pki/tls/cacert.pem",                           // OpenELEC
+		"/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem", // CentOS/RHEL 7
+		"/etc/ssl/cert.pem",                                 // Alpine Linux
+	};
+	for (auto cf = certFiles.begin(); certFile == nullptr && cf != certFiles.end(); ++cf) {
+		if (fileSystem->fileExists(*cf)) {
+			certFile = *cf;
+		}
 	}
-	if (fileSystem->isOlder(path, 15552000)) {
-		LOG_INFO("%s is older than half a year, redownloading" ,path.c_str());
-		fileSystem->removeFile(path); // Just downloading the file again doesn't overwrite it
-		return false;
+	if (certFile == nullptr) {
+		LOG_WARN("Not found cert file in any of known locations, download will likely fail");
 	}
-/*
-	HashSHA1 hash;
-	hash.Init();
 
-	FILE* f = fileSystem->propen(path, "rb");
-	if (f == nullptr)
-		return false;
-	char buf[1024];
-	int items;
-	do {
-		items = fread(buf, 1, sizeof(buf), f);
-		hash.Update(buf, items);
-	} while(items > 0);
-	hash.Final();
-	if (cacertsha1 == hash.toString())
-		return true;
-
-	LOG_INFO("%s compare failed: %s != %s", path.c_str(), cacertsha1, hash.toString().c_str());
-	return false;
-*/
-	return true;
-}
-
-bool CurlWrapper::ValidateCaFile(const std::string& cafile)
-{
-	if (VerifyFile(cafile))
-		return true;
-
-	IDownload tmpdl(cafile);
-	tmpdl.addMirror(cacertpem);
-	tmpdl.validateTLS = false;
-	LOG_INFO("Downloading %s", cacertpem);
-	if(!httpDownload->download(&tmpdl)) {
-		LOG_ERROR("Download of %s to %s failed, please manually download!", cacertpem, GetCAFilePath().c_str());
-		return false;
+	std::array<const char*, 2> certDirs = {
+		"/etc/ssl/certs",               // SLES10/SLES11, https://golang.org/issue/12139
+		"/etc/pki/tls/certs",           // Fedora/RHEL
+	};
+	for (auto cd = certDirs.begin(); certDir == nullptr && cd != certDirs.end(); ++cd) {
+		if (fileSystem->directoryExists(*cd)) {
+			certDir = *cd;
+		}
 	}
-	return true;
+	if (certDir == nullptr) {
+		LOG_WARN("Not found cert dir in any of known locations, download will likely fail");
+	}
+#endif
+
+	LOG_INFO("CURLOPT_CAINFO is %s (can be overriden by SSL_CERT_FILE env variable)", certFile == nullptr ? "nullptr" : certFile);
+	LOG_INFO("CURLOPT_CAPATH is %s (can be overriden by SSL_CERT_DIR env variable)", certDir == nullptr ? "nullptr" : certDir);
 }
 
 static void SetCAOptions(CURL* handle)
 {
-	// If the default certificate directory exists on this system, adding it to curl options
-	if (fileSystem->directoryExists(capath)) {
-		LOG_DEBUG("Using capath: %s", capath);
-		const int res = curl_easy_setopt(handle, CURLOPT_CAPATH, capath);
-		if (res != CURLE_OK) {
-			LOG_WARN("Error setting CURLOPT_CAPATH: %d", res);
-		}
-		return;
-	}
+#ifdef _WIN32
+	// CURLSSLOPT_NATIVE_CA was added in curl 7.71.0
+	curl_easy_setopt(handle, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NATIVE_CA);
+#endif
 
-	// Alternatively, using a local downloaded certificate file in curl options
-	const std::string cafile = GetCAFilePath();
-	if (!fileSystem->fileExists(cafile)) {
-		LOG_WARN("Certstore doesn't exist: %s", cafile.c_str());
-		return;
+	if (certFile != nullptr) {
+		const int res = curl_easy_setopt(handle, CURLOPT_CAINFO, certFile);
+		if (res != CURLE_OK) {
+			LOG_WARN("Error setting CURLOPT_CAINFO to %s: %d", certFile, res);
+		}
 	}
-	const int res = curl_easy_setopt(handle, CURLOPT_CAINFO, cafile.c_str());
-	if (res != CURLE_OK) {
-		LOG_WARN("Error setting CURLOPT_CAINFO: %d", res);
+	if (certDir != nullptr) {
+		const int res = curl_easy_setopt(handle, CURLOPT_CAPATH, certDir);
+		if (res != CURLE_OK) {
+			LOG_WARN("Error setting CURLOPT_CAPATH to %s: %d", certDir, res);
+		}
 	}
 }
 
@@ -152,9 +109,7 @@ CurlWrapper::CurlWrapper()
 	errbuf[0] = 0;
 	curl_easy_setopt(handle, CURLOPT_ERRORBUFFER, errbuf);
 
-	if (backend != CURLSSLBACKEND_SCHANNEL) {
-		SetCAOptions(handle);
-	}
+	SetCAOptions(handle);
 
 	curl_easy_setopt(handle, CURLOPT_CONNECTTIMEOUT, 30);
 
@@ -209,11 +164,8 @@ std::string CurlWrapper::EscapeUrl(const std::string& url)
 void CurlWrapper::InitCurl()
 {
 	DumpVersion();
-	GetTLSBackend();
+	ConfigureCertificates();
 	curl_global_init(CURL_GLOBAL_ALL);
-	if (backend != CURLSSLBACKEND_SCHANNEL) {
-		ValidateCaFile(GetCAFilePath());
-	}
 	const char* cert_check_env = std::getenv("PRD_DISABLE_CERT_CHECK");
 	if (cert_check_env != nullptr && std::string(cert_check_env) == "true") {
 		verify_certificate = false;
@@ -231,4 +183,3 @@ std::string CurlWrapper::GetError() const
 		return "";
 	return std::string(errbuf, strlen(errbuf));
 }
-

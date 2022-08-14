@@ -274,7 +274,6 @@ static bool setupDownload(CURLM* curlm, DownloadData* piece)
 	curl_easy_setopt(curle, CURLOPT_PROGRESSFUNCTION, progress_func);
 	curl_easy_setopt(curle, CURLOPT_URL, piece->mirror.c_str());
 	curl_easy_setopt(curle, CURLOPT_PIPEWAIT, 1L);
-	curl_easy_setopt(curle, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NO_REVOKE);
 
 	if (piece->download->noCache) {
 		piece->curlw->AddHeader("Cache-Control: no-cache");

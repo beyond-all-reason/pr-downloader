@@ -18,8 +18,6 @@ public:
 	static void KillCurl();
 	void AddHeader(const std::string& header);
 private:
-	static bool VerifyFile(const std::string& path);
-	static bool ValidateCaFile(const std::string& cafile);
 
 	CURL* handle;
 	char* errbuf;
