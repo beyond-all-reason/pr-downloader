@@ -13,8 +13,7 @@ public:
 		return handle;
 	}
 	std::string GetError() const;
-	static std::string escapeUrl(const std::string& url);
-	std::string escapeCurl(const std::string& url) const;
+	static std::string EscapeUrl(const std::string& url);
 	static void InitCurl();
 	static void KillCurl();
 	void AddHeader(const std::string& header);

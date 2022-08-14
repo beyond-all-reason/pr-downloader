@@ -69,7 +69,7 @@ bool CHttpDownloader::DownloadUrl(const std::string& url, std::string& res)
 	d.download->origin_name = url;
 
 	CurlWrapper curlw;
-	curl_easy_setopt(curlw.GetHandle(), CURLOPT_URL, CurlWrapper::escapeUrl(url).c_str());
+	curl_easy_setopt(curlw.GetHandle(), CURLOPT_URL, url.c_str());
 	curl_easy_setopt(curlw.GetHandle(), CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
 	curl_easy_setopt(curlw.GetHandle(), CURLOPT_WRITEDATA, (void*)&res);
 	curl_easy_setopt(curlw.GetHandle(), CURLOPT_PROGRESSDATA, &d);
@@ -99,9 +99,9 @@ static std::string getRequestUrl(const std::string& name,
 
 	std::string url = http_search_url + std::string("?");
 	if (cat != DownloadEnum::CAT_NONE) {
-		url += "category=" + DownloadEnum::getCat(cat) + std::string("&");
+		url += "category=" + CurlWrapper::EscapeUrl(DownloadEnum::getCat(cat)) + std::string("&");
 	}
-	return url + std::string("springname=") + name;
+	return url + std::string("springname=") + CurlWrapper::EscapeUrl(name);
 }
 
 bool CHttpDownloader::ParseResult(const std::string& /*name*/,
@@ -272,7 +272,7 @@ static bool setupDownload(CURLM* curlm, DownloadData* piece)
 	curl_easy_setopt(curle, CURLOPT_NOPROGRESS, 0L);
 	curl_easy_setopt(curle, CURLOPT_PROGRESSDATA, piece);
 	curl_easy_setopt(curle, CURLOPT_PROGRESSFUNCTION, progress_func);
-	curl_easy_setopt(curle, CURLOPT_URL, CurlWrapper::escapeUrl(piece->mirror).c_str());
+	curl_easy_setopt(curle, CURLOPT_URL, piece->mirror.c_str());
 	curl_easy_setopt(curle, CURLOPT_PIPEWAIT, 1L);
 	curl_easy_setopt(curle, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NO_REVOKE);
 

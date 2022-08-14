@@ -186,24 +186,22 @@ void CurlWrapper::AddHeader(const std::string& header) {
 	curl_easy_setopt(handle, CURLOPT_HTTPHEADER, list);
 }
 
-std::string CurlWrapper::escapeUrl(const std::string& url)
+std::string CurlWrapper::EscapeUrl(const std::string& url)
 {
-	std::string res;
-	for (unsigned int i = 0; i < url.size();
-	     i++) { // FIXME: incomplete, needs to support all unicode chars
-		if (url[i] == ' ')
-			res.append("%20");
-		else
-			res.append(1, url[i]);
-	}
-	return res;
-}
+// Just in case we compile with some old version of curl.
+#if CURL_AT_LEAST_VERSION(7,82,0)
+	CURL* handle = nullptr;
+#else
+	CURL* handle = curl_easy_init();
+#endif
 
-std::string CurlWrapper::escapeCurl(const std::string& url) const
-{
 	char* s = curl_easy_escape(handle, url.c_str(), url.size());
 	std::string out(s);
 	curl_free(s);
+
+#if !CURL_AT_LEAST_VERSION(7,82,0)
+	curl_easy_cleanup(handle);
+#endif
 
 	return out;
 }
