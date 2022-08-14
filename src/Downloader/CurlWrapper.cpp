@@ -164,7 +164,7 @@ CurlWrapper::CurlWrapper()
 	curl_easy_setopt(handle, CURLOPT_LOW_SPEED_TIME, 30);
 	curl_easy_setopt(handle, CURLOPT_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
 	curl_easy_setopt(handle, CURLOPT_REDIR_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
-	curl_easy_setopt(handle, CURLOPT_USERAGENT, getVersion());
+	curl_easy_setopt(handle, CURLOPT_USERAGENT, getAgent());
 	curl_easy_setopt(handle, CURLOPT_FAILONERROR, true);
 	curl_easy_setopt(handle, CURLOPT_FOLLOWLOCATION, 1);
 	curl_easy_setopt(handle, CURLOPT_SSL_VERIFYPEER, verify_certificate ? 1 : 0);
