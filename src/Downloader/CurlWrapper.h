@@ -13,14 +13,11 @@ public:
 		return handle;
 	}
 	std::string GetError() const;
-	static std::string escapeUrl(const std::string& url);
-	std::string escapeCurl(const std::string& url) const;
+	static std::string EscapeUrl(const std::string& url);
 	static void InitCurl();
 	static void KillCurl();
 	void AddHeader(const std::string& header);
 private:
-	static bool VerifyFile(const std::string& path);
-	static bool ValidateCaFile(const std::string& cafile);
 
 	CURL* handle;
 	char* errbuf;
