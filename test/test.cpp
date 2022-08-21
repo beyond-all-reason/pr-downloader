@@ -1,11 +1,17 @@
+#include <cstddef>
+#include <cstdio>
 #define BOOST_TEST_MODULE Float3
 #include <boost/test/unit_test.hpp>
-#include <string>
+#include <algorithm>
 #include <memory>
+#include <optional>
+#include <random>
+#include <string>
 
 #include "FileSystem/FileSystem.h"
 #include "FileSystem/HashGzip.h"
 #include "FileSystem/HashMD5.h"
+#include "Downloader/Http/IOThreadPool.h"
 
 BOOST_AUTO_TEST_CASE(EscapeFilenameTest)
 {
@@ -51,4 +57,50 @@ BOOST_AUTO_TEST_CASE(HashGzipTest)
 	gzip_hash.Update(reinterpret_cast<char*>(input), input_size);
 	gzip_hash.Final();
 	BOOST_CHECK(gzip_hash.get(0) == 255);
+}
+
+BOOST_AUTO_TEST_CASE(IOThreadPoolTest)
+{
+	constexpr int handlersCount = 1000;
+	constexpr int accCount = 1000;
+	constexpr int modRetEval = 3;
+	std::vector<int> counters(handlersCount);
+	std::vector<int> queue(handlersCount * accCount);
+	int total_ret_counter = 0;
+	for (int h = 0; h < handlersCount; ++h) {
+		for (int c = 0; c < accCount; ++c) {
+			queue[h * accCount + c] = h;
+		}
+	}
+
+	std::default_random_engine gen(std::random_device{}());
+	std::shuffle(queue.begin(), queue.end(), gen);
+
+	IOThreadPool pool(8, 10);
+	std::vector<IOThreadPool::Handle> handlers;
+	handlers.reserve(handlersCount);
+	for (int i = 0; i < handlersCount; ++i) {
+		handlers.emplace_back(pool.getHandle());
+	}
+	for (size_t i = 0; i < queue.size(); ++i) {
+		int val = queue[i];
+		pool.submit(handlers[val], [&counters, &total_ret_counter, val] () -> IOThreadPool::OptRetF {
+			counters[val] += 1;
+			if (val % modRetEval == 0) {
+				return [&total_ret_counter] () {
+					total_ret_counter += 1;
+				};
+			}
+			return std::nullopt;
+		});
+		if (i % handlersCount) {
+			pool.pullResults();
+		}
+	}
+	pool.finish();
+	constexpr int expexted_total_ret_countet = accCount * ((handlersCount + modRetEval - 1) / modRetEval);
+	BOOST_CHECK(total_ret_counter == expexted_total_ret_countet);
+	for (int i = 0; i < handlersCount; ++i) {;
+		BOOST_CHECK(counters[i] == accCount);
+	}
 }
