@@ -1,3 +1,6 @@
 [submodule "src/lib/libgit2"]
 	path = src/lib/libgit2
 	url = https://github.com/libgit2/libgit2.git
+[submodule "src/lib/readerwriterqueue"]
+	path = src/lib/readerwriterqueue
+	url = https://github.com/cameron314/readerwriterqueue.git

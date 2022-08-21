@@ -69,6 +69,7 @@ target_link_libraries(Downloader
 	pr-md5
 	pr-sha1
 	${archiveslib}
+	readerwriterqueue
 )
 
 if(PRD_ARCHIVE_SUPPORT)
