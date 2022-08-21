@@ -37,7 +37,6 @@ CSdp::CSdp(const std::string& shortname, const std::string& md5,
 		fileSystem->createSubdirs(dir);
 	}
 	sdpPath = dir + md5 + ".sdp";
-	LOG_DEBUG("%s", sdpPath.c_str());
 }
 
 CSdp::CSdp(CSdp&& sdp) = default;

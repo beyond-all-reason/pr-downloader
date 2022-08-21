@@ -31,6 +31,8 @@ public:
   */
 	bool parse();
 
+	bool deleteRepoFile();
+
 	const std::string& getShortName() const
 	{
 		return shortname;

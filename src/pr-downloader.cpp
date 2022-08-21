@@ -119,11 +119,15 @@ bool search(DownloadEnum::Category cat, const char* name,
 		case DownloadEnum::CAT_GAME:
 		case DownloadEnum::CAT_COUNT:
 		case DownloadEnum::CAT_NONE:
-			rapidDownload->search(searchres, searchname.c_str(), cat);
+			if (!rapidDownload->search(searchres, searchname.c_str(), cat)) {
+				return false;
+			}
 			if (!searchres.empty()) {
 				return true;
 			}
-			httpDownload->search(searchres, searchname.c_str(), cat);
+			if (!httpDownload->search(searchres, searchname.c_str(), cat)) {
+				return false;
+			}
 			if (!searchres.empty()) {
 				return true;
 			}
