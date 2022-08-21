@@ -16,3 +16,4 @@ if (NOT Libgit2_FOUND AND RAPIDTOOLS)
 
 	add_subdirectory(libgit2 EXCLUDE_FROM_ALL)
 endif ()
+add_subdirectory(readerwriterqueue)
