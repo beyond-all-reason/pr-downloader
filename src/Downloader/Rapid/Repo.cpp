@@ -81,15 +81,18 @@ bool CRepo::parse()
 		rapid->addRemoteSdp(CSdp { items[0], items[1], items[3], items[2], repourl });
 	}
 	int errnum = Z_OK;
+	bool ok = true;
 	const char* errstr = gzerror(fp, &errnum);
-	switch (errnum) {
-		case Z_OK:
-		case Z_STREAM_END:
-			break;
-		default:
-			LOG_ERROR("%d %s\n", errnum, errstr);
+	if (errnum != Z_OK && errnum != Z_STREAM_END) {
+		LOG_ERROR("%d %s\n", errnum, errstr);
+		ok = false;
 	}
 	gzclose(fp);
 	fclose(f);
-	return true;
+	return ok;
+}
+
+bool CRepo::deleteRepoFile()
+{
+	return fileSystem->removeFile(tmpFile);
 }

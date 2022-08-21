@@ -91,7 +91,9 @@ bool CRapidDownloader::search(std::list<IDownload*>& result,
 			      DownloadEnum::Category cat)
 {
 	LOG_DEBUG("%s", name.c_str());
-	updateRepos(name);
+	if (!updateRepos(name)) {
+		return false;
+	}
 	sdps.sort(list_compare);
 	for (const CSdp& sdp : sdps) {
 		if (match_download_name(sdp.getShortName(), name) ||
@@ -191,7 +193,17 @@ static bool ParseFD(FILE* f, const std::string& path, std::list<CRepo>& repos, C
 		CRepo repotmp = CRepo(items[1], items[0], rapid);
 		repos.push_back(repotmp);
 	}
+	int errnum = Z_OK;
+	bool ok = true;
+	const char* errstr = gzerror(fp, &errnum);
+	if (errnum != Z_OK && errnum != Z_STREAM_END) {
+		LOG_ERROR("Decompression error: %d %s\n", errnum, errstr);
+		ok = false;
+	}
 	gzclose(fp);
+	if (!ok) {
+		return false;
+	}
 	if (i <= 0) {
 		LOG_ERROR("Broken %s: %d", path.c_str(), i);
 		return false;
@@ -244,9 +256,14 @@ bool CRapidDownloader::updateRepos(const std::string& searchstr)
 	}
 	LOG_DEBUG("Downloading ...");
 	httpDownload->download(dls);
+	bool ok = true;
 	for (CRepo* repo : usedrepos) {
-		repo->parse();
+		if (!repo->parse()) {
+			repo->deleteRepoFile();
+			ok = false;
+			break;
+		}
 	}
 	IDownloader::freeResult(dls);
-	return true;
+	return ok;
 }
