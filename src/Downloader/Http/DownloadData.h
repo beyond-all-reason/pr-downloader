@@ -7,6 +7,9 @@
 #include <vector>
 #include <string>
 #include <chrono>
+#include <optional>
+
+#include "IOThreadPool.h"
 
 class Mirror;
 class IDownload;
@@ -24,7 +27,7 @@ public:
 class DownloadData
 {
 public:
-	DownloadData();
+	DownloadData(std::optional<IOThreadPool::Handle> handle);
 	std::unique_ptr<CurlWrapper> curlw; // curl_easy_handle
 	std::string mirror;     // mirror used
 	IDownload* download;
@@ -34,6 +37,10 @@ public:
 	std::chrono::seconds retry_after_from_server{0};
 	std::chrono::steady_clock::time_point next_retry;
 	bool force_discard = false;
+	std::optional<IOThreadPool::Handle> thread_handle;
+	bool transfer_done = false;
+	bool io_failure = false;  // Used by IO threads
+	bool *abort_download = nullptr;
 
 	void updateProgress(double total, double done);
 };

@@ -9,14 +9,17 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <functional>
 #include <memory>
 #include <numeric>
+#include <optional>
 #include <queue>
 #include <random>
 #include <sstream>
 #include <string>
 #include <sys/types.h>
+#include <thread>
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -27,6 +30,7 @@
 #include <json/reader.h>
 
 #include "DownloadData.h"
+#include "IOThreadPool.h"
 #include "Throttler.h"
 #include "FileSystem/FileSystem.h"
 #include "FileSystem/File.h"
@@ -62,7 +66,7 @@ static int progress_func(DownloadData* data, double total, double done, double,
 // downloads url into res
 bool CHttpDownloader::DownloadUrl(const std::string& url, std::string& res)
 {
-	DownloadData d;
+	DownloadData d(std::nullopt);
 	d.download = new IDownload();
 	d.download->addMirror(url);
 	d.download->name = url;
@@ -211,16 +215,47 @@ bool CHttpDownloader::search(std::list<IDownload*>& res,
 	return ParseResult(name, dlres, res);
 }
 
+template<class F>
+IOThreadPool::WorkF ioFailureWrap(DownloadData* data, F&& f)
+{
+	return [data, f = std::move(f)] () -> IOThreadPool::OptRetF {
+		if (data->io_failure) {
+			return std::nullopt;
+		}
+		if (!f(data)) {
+			data->io_failure = true;
+			return [data] {
+				*data->abort_download = true;
+			};
+		}
+		return std::nullopt;
+	};
+}
+
 static size_t multi_write_data(void* ptr, size_t size, size_t nmemb,
 			       DownloadData* data)
 {
 	if (IDownloader::AbortDownloads())
 		return -1;
-	data->download->state = IDownload::STATE_DOWNLOADING;
-	if (data->download->out_hash != nullptr) {
-		data->download->out_hash->Update(static_cast<const char*>(ptr), size * nmemb);
-	}
-	return data->download->file->Write(static_cast<const char*>(ptr), size * nmemb);
+
+	// shared_ptr because std::function must be copyable.
+	auto buffer = std::shared_ptr<char[]>(new char [size * nmemb]);
+	memcpy(buffer.get(), ptr, size * nmemb);
+
+	data->thread_handle->submit(ioFailureWrap(data, [
+		buffer = std::move(buffer),
+		size = size * nmemb
+	] (DownloadData* data) {
+		data->download->state = IDownload::STATE_DOWNLOADING;
+		if (data->download->out_hash != nullptr) {
+			data->download->out_hash->Update(buffer.get(), size);
+		}
+		if (data->download->file->Write(buffer.get(), size) != size) {
+			return false;
+		}
+		return true;
+	}));
+	return size * nmemb;
 }
 
 // Computes the exponential retry duration to wait before making next request.
@@ -251,16 +286,18 @@ static bool setupDownload(CURLM* curlm, DownloadData* piece)
 	std::uniform_int_distribution<> dist(0, piece->download->getMirrorCount() - 1);
 	piece->mirror = piece->download->getMirror(dist(gen));
 
-	assert(piece->download->file == nullptr);
-	piece->download->file = std::make_unique<CFile>();
-	if (!piece->download->file->Open(piece->download->name)) {
-		piece->download->file = nullptr;
-		return false;
-	}
-
-	if (piece->download->out_hash != nullptr) {
-		piece->download->out_hash->Init();
-	}
+	piece->thread_handle->submit(ioFailureWrap(piece, [](DownloadData* piece) {
+		assert(piece->download->file == nullptr);
+		piece->download->file = std::make_unique<CFile>();
+		if (!piece->download->file->Open(piece->download->name)) {
+			piece->download->file = nullptr;
+			return false;
+		}
+		if (piece->download->out_hash != nullptr) {
+			piece->download->out_hash->Init();
+		}
+		return true;
+	}));
 
 	piece->curlw = std::make_unique<CurlWrapper>();
 	CURL* curle = piece->curlw->GetHandle();
@@ -274,6 +311,7 @@ static bool setupDownload(CURLM* curlm, DownloadData* piece)
 	curl_easy_setopt(curle, CURLOPT_PROGRESSFUNCTION, progress_func);
 	curl_easy_setopt(curle, CURLOPT_URL, piece->mirror.c_str());
 	curl_easy_setopt(curle, CURLOPT_PIPEWAIT, 1L);
+	curl_easy_setopt(curle, CURLOPT_BUFFERSIZE, 16384);
 
 	if (piece->download->noCache) {
 		piece->curlw->AddHeader("Cache-Control: no-cache");
@@ -298,23 +336,20 @@ static bool setupDownload(CURLM* curlm, DownloadData* piece)
 	return true;
 }
 
-static void cleanupDownload(CURLM* curlm, DownloadData* data)
+static bool cleanupDownload(DownloadData* data)
 {
+	bool ok = true;
 	auto dl = data->download;
-
 	if (dl->file != nullptr) {
 		if (dl->state == IDownload::STATE_DOWNLOADING) {
 			// Some other error interrupted overall transfer (this or other file).
 			dl->state = IDownload::STATE_FAILED;
 		}
 		// Drop temp written file when downloading didn't succeed.
-		dl->file->Close(/*discard=*/dl->state != IDownload::STATE_FINISHED || data->force_discard);
+		ok = dl->file->Close(/*discard=*/dl->state != IDownload::STATE_FINISHED || data->force_discard);
 		dl->file = nullptr;
 	}
-	if (data->curlw != nullptr) {
-		curl_multi_remove_handle(curlm, data->curlw->GetHandle());
-		data->curlw = nullptr;
-	}
+	return ok;
 }
 
 struct HTTPStats {
@@ -357,6 +392,28 @@ static std::string computeStats(std::vector<std::chrono::microseconds> in) {
 	return std::string(buf);
 }
 
+static bool handleSuccessTransfer(DownloadData* data, bool http_not_modified) {
+	if (http_not_modified) {
+		data->download->state = IDownload::STATE_FINISHED;
+		// To not override existing file with empty one.
+		data->force_discard = true;
+		return true;
+	} 
+	if (data->download->out_hash == nullptr) {
+		data->download->state = IDownload::STATE_FINISHED;
+		return true;
+	}
+	// Verify that hash matches with expected when we are done.
+	data->download->out_hash->Final();
+	if (!data->download->hash->compare(data->download->out_hash.get())) {
+		data->download->state = IDownload::STATE_FAILED;
+		LOG_ERROR("File %s hash validation failed.", data->download->name.c_str());
+		return false;
+	}
+	data->download->state = IDownload::STATE_FINISHED;
+	return true;
+}
+
 static bool processMessages(CURLM* curlm,
                             std::vector<DownloadData*>* to_retry,
                             HTTPStats *stats)
@@ -376,23 +433,10 @@ static bool processMessages(CURLM* curlm,
 		switch (msg->data.result) {
 			case CURLE_OK:
 				curl_easy_getinfo(msg->easy_handle, CURLINFO_RESPONSE_CODE, &http_code);
-				if (http_code == 304) {
-					data->download->state = IDownload::STATE_FINISHED;
-					// To not override existing file with empty one.
-					data->force_discard = true;
-				} else if (data->download->out_hash == nullptr) {
-					data->download->state = IDownload::STATE_FINISHED;
-				} else {
-					// Verify that hash matches with expected when we are done.
-					data->download->out_hash->Final();
-					if (!data->download->hash->compare(data->download->out_hash.get())) {
-						data->download->state = IDownload::STATE_FAILED;
-						ok = false;
-					} else {
-						data->download->state = IDownload::STATE_FINISHED;
-					}
-				}
-
+				data->thread_handle->submit(ioFailureWrap(data, [http_code] (DownloadData* data) {
+					return handleSuccessTransfer(data, http_code == 304);
+				}));
+				data->transfer_done = true;
 				// Fill in stats for the transfer
 				curl_off_t ttfb, totalt;
 				long http_version;
@@ -445,7 +489,11 @@ static bool processMessages(CURLM* curlm,
 
 				ok = ok && retry;
 		}
-		cleanupDownload(curlm, data);
+		data->thread_handle->submit(ioFailureWrap(data, cleanupDownload));
+		if (data->curlw != nullptr) {
+			curl_multi_remove_handle(curlm, data->curlw->GetHandle());
+			data->curlw = nullptr;
+		}
 	}
 	return ok;
 }
@@ -490,9 +538,15 @@ static unsigned getMaxReqsPerSecLimit() {
 bool CHttpDownloader::download(std::list<IDownload*>& download,
                                int max_parallel)
 {
+	// With CURLOPT_BUFFERSIZE = 16KiB, this ends up with a very theoretical
+	// max 250MiB buffered in memory before it's written to disk.
+	IOThreadPool thread_pool(download.size() < 10 ?
+		1 : std::min(16u, std::thread::hardware_concurrency()), 1000);
+
 	// Prepare downloads from input.
 	std::vector<std::unique_ptr<DownloadData>> downloads;
 	DownloadDataPack download_pack;
+	bool abort_download = false;
 	for (IDownload* dl : download) {
 		if (dl->isFinished()) {
 			continue;
@@ -505,8 +559,9 @@ bool CHttpDownloader::download(std::list<IDownload*>& download,
 			LOG_WARN("No mirrors found");
 			return false;
 		}
-		downloads.emplace_back(std::make_unique<DownloadData>());
+		downloads.emplace_back(std::make_unique<DownloadData>(thread_pool.getHandle()));
 		auto dlData = downloads.back().get();
+		dlData->abort_download = &abort_download;
 		dlData->download = dl;
 		dlData->data_pack = &download_pack;
 		if (dl->size > 0) {
@@ -593,7 +648,7 @@ bool CHttpDownloader::download(std::list<IDownload*>& download,
 		       throttler.get_token(); ++running) {
 			decltype(downloads)::iterator to_download;
 			if (big_file_it == downloads.end() ||
-			    (*big_file_it)->download->state == IDownload::STATE_FINISHED) {
+			    (*big_file_it)->transfer_done) {
 				to_download = --big_file_it;
 			} else {
 				to_download = small_file_it++;
@@ -608,6 +663,11 @@ bool CHttpDownloader::download(std::list<IDownload*>& download,
 			LOG_ERROR("curl_multi_poll, code %d.\n", ret);
 			goto abort;
 		}
+
+		thread_pool.pullResults();
+		if (abort_download) {
+			goto abort;
+		}
 	} while (running > 0 || small_file_it < big_file_it);
 	aborted = false;
 	LOG_INFO("Download: num files: %ld, protocol: %s, to first byte: %s, transfer: %s, num retried errors: %d",
@@ -615,10 +675,14 @@ bool CHttpDownloader::download(std::list<IDownload*>& download,
 	         computeStats(stats.time_to_first_byte).c_str(),
 	         computeStats(stats.total_transfer_time).c_str(), stats.num_errors);
 abort:
-
+	thread_pool.finish();
 	// Cleanup
 	for (auto& data: downloads) {
-		cleanupDownload(curlm, data.get());
+		cleanupDownload(data.get());
+		if (data->curlw != nullptr) {
+			curl_multi_remove_handle(curlm, data->curlw->GetHandle());
+			data->curlw = nullptr;
+		}
 	}
 	curl_multi_cleanup(curlm);
 	return !aborted;

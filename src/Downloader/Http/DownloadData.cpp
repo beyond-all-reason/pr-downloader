@@ -6,8 +6,9 @@
 #include "Downloader/IDownloader.h"
 #include "Logger.h"
 
-DownloadData::DownloadData() :
-	curlw(new CurlWrapper())
+DownloadData::DownloadData(std::optional<IOThreadPool::Handle> handle) :
+	curlw(new CurlWrapper()),
+	thread_handle(std::move(handle))
 {
 }
 
