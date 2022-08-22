@@ -22,9 +22,19 @@ public:
 	using WorkF = std::function<OptRetF()>;
 
 	class Handle {
-		constexpr explicit Handle(unsigned id) : threadId{id} {}
+		constexpr explicit Handle(IOThreadPool* threadPool, unsigned id)
+			: threadPool{threadPool}, threadId{id} {}
+
+		IOThreadPool* threadPool;
 		const unsigned threadId;
 		friend IOThreadPool;
+	public:
+		// Submits more work to the queue. All work submitted for the
+		// same handle will execute synchronously in the FIFO order.
+		// The call blocks if the work queue is full.
+		void submit(WorkF&& work) {
+			threadPool->submit(threadId, std::move(work));
+		}
 	};
 
 	// Creates a new thread pool with poolSize threads. Each thread has
@@ -40,22 +50,22 @@ public:
 	// finish have undefined behavior.
 	void finish();
 
-	// Submits more work to the queue. All work submitted for the same
-	// handle will execute synchronously in the FIFO order.
-	// The call blocks if the work queue is full.
-	void submit(Handle handle, WorkF&& work) {
-		assert(!threads.empty());
-		sendQ[handle.threadId].wait_enqueue(work);
-	}
-
 	// Creates a new work queue handle. Provides functionality analogous to
 	// strand in asio/Networking TS.
 	Handle getHandle() {
 		assert(!threads.empty());
-		return Handle(threadDist(randomGen));
+		return Handle(this, threadDist(randomGen));
 	}
 private:
 	struct Close {};
+
+	// Submits more work to the queue. All work submitted for the same
+	// handle will execute synchronously in the FIFO order.
+	// The call blocks if the work queue is full.
+	void submit(unsigned threadId, WorkF&& work) {
+		assert(!threads.empty());
+		sendQ[threadId].wait_enqueue(std::move(work));
+	}
 
 	void worker(unsigned id);
 
