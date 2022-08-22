@@ -20,7 +20,7 @@ public:
 	* close file. If discard is set, removes the file as something is wrong
 	* with its contents.
 	*/
-	void Close(bool discard = false);
+	bool Close(bool discard = false);
 	/**
 	* write bufsize bytes to the file.
 	*/

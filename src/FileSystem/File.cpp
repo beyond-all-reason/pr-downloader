@@ -15,9 +15,9 @@ CFile::~CFile()
 	Close();
 }
 
-void CFile::Close(bool discard)
+bool CFile::Close(bool discard)
 {
-	if (handle == nullptr) return;
+	if (handle == nullptr) return true;
 
 	LOG_DEBUG("closing %s%s", filename.c_str(), discard ? ", with discard" : "");
 
@@ -26,13 +26,13 @@ void CFile::Close(bool discard)
 
 	if (discard) {
 		fileSystem->removeFile(tmpfile);
-		return;
+		return true;
 	}	
 	// delete possible existing destination file
-	if (fileSystem->fileExists(filename)) {
-		fileSystem->removeFile(filename);
+	if (fileSystem->fileExists(filename) && !fileSystem->removeFile(filename)) {
+		return false;
 	}
-	fileSystem->Rename(tmpfile, filename);
+	return fileSystem->Rename(tmpfile, filename);
 }
 
 bool CFile::Open(const std::string& filename)
