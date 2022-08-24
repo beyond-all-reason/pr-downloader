@@ -436,7 +436,6 @@ static bool processMessages(CURLM* curlm,
 				data->thread_handle->submit(ioFailureWrap(data, [http_code] (DownloadData* data) {
 					return handleSuccessTransfer(data, http_code == 304);
 				}));
-				data->transfer_done = true;
 				// Fill in stats for the transfer
 				curl_off_t ttfb, totalt;
 				long http_version;
@@ -577,19 +576,11 @@ bool CHttpDownloader::download(std::list<IDownload*>& download,
 		return true;
 	}
 
-	// We sort the downloads by size and then pull files from both ends of the
-	// queue. The goal is to have a one big file in progress and and multiple
-	// smaller ones. We do this to try to maximize bandwidth usage and minimize
-	// impact from latency and rate limiting. In other words, try to as much as
-	// possible shift bottleneck on download speed from req/s to client
-	// bandwidth.
-	std::sort(downloads.begin(), downloads.end(),
-	          [](const std::unique_ptr<DownloadData>& a,
-	             const std::unique_ptr<DownloadData>& b) {
-		return a->approx_size < b->approx_size;
-	});
-	auto small_file_it = downloads.begin();
-	auto big_file_it = downloads.end();
+	// Shuffle files to try to distribute big and small files evenly during
+	// download to maximize bandwidth and distribute required file IO.
+	std::shuffle(downloads.begin(), downloads.end(),
+	             std::default_random_engine(std::random_device{}()));
+	auto downloads_it = downloads.begin();
 
 	// Perform actual download using the Curl multi interface.
 	HTTPStats stats;
@@ -644,16 +635,9 @@ bool CHttpDownloader::download(std::list<IDownload*>& download,
 		}
 
 		// Start more new requests so we have up to max_parallel happening.
-		for (; running < max_parallel && small_file_it < big_file_it &&
+		for (; running < max_parallel && downloads_it != downloads.end() &&
 		       throttler.get_token(); ++running) {
-			decltype(downloads)::iterator to_download;
-			if (big_file_it == downloads.end() ||
-			    (*big_file_it)->transfer_done) {
-				to_download = --big_file_it;
-			} else {
-				to_download = small_file_it++;
-			}
-			if (!setupDownload(curlm, (*to_download).get())) {
+			if (!setupDownload(curlm, (*downloads_it++).get())) {
 				goto abort;
 			}
 		}
@@ -668,7 +652,7 @@ bool CHttpDownloader::download(std::list<IDownload*>& download,
 		if (abort_download) {
 			goto abort;
 		}
-	} while (running > 0 || small_file_it < big_file_it);
+	} while (running > 0 || downloads_it != downloads.end());
 	aborted = false;
 	LOG_INFO("Download: num files: %ld, protocol: %s, to first byte: %s, transfer: %s, num retried errors: %d",
 	         downloads.size(), curlHttpVersionToString(stats.http_version).c_str(),

@@ -38,7 +38,6 @@ public:
 	std::chrono::steady_clock::time_point next_retry;
 	bool force_discard = false;
 	std::optional<IOThreadPool::Handle> thread_handle;
-	bool transfer_done = false;
 	bool io_failure = false;  // Used by IO threads
 	bool *abort_download = nullptr;
 
