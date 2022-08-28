@@ -59,8 +59,7 @@ private:
 	/**
           download by name, for example "Complete Annihilation revision 1234"
   */
-	bool download_name(IDownload* download, int reccounter = 0,
-			   std::string name = "");
+	bool download_name(IDownload* download);
 	/**
           update all repos from the web
   */

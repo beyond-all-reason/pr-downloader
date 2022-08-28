@@ -78,7 +78,12 @@ bool CRepo::parse()
 		}
 
 		// create new repo from url
-		rapid->addRemoteSdp(CSdp { items[0], items[1], items[3], items[2], repourl });
+		std::vector<std::string> deps;
+		if (!items[2].empty()) {
+			deps = tokenizeString(items[2], '|');
+		}
+		rapid->addRemoteSdp(CSdp(std::move(items[0]), std::move(items[1]),
+		                         std::move(items[3]), std::move(deps), repourl));
 	}
 	int errnum = Z_OK;
 	bool ok = true;

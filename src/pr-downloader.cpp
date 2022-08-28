@@ -265,8 +265,8 @@ int DownloadStart()
 		return 5;
 	}
 
-	if (fetchDepends) {
-		addDepends(dls);
+	if (fetchDepends && !addDepends(dls)) {
+		return 6;
 	}
 
 	if (dls.empty()) {

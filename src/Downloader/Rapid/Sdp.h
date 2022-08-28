@@ -6,6 +6,7 @@
 #include <list>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "FileSystem/FileData.h"
 
@@ -17,9 +18,8 @@ class CFile;
 class CSdp
 {
 public:
-	CSdp(const std::string& shortname, const std::string& md5,
-	     const std::string& name, const std::string& depends,
-	     const std::string& baseUrl);
+	CSdp(std::string shortname, std::string md5, std::string name,
+	     std::vector<std::string> depends, std::string baseUrl);
 	CSdp(CSdp&& sdp);
 
 	~CSdp();
@@ -57,7 +57,7 @@ public:
 	/**
           returns the shortname, for example ba:stable
   */
-	const std::string& getDepends() const
+	const std::vector<std::string>& getDepends() const
 	{
 		return depends;
 	}
@@ -110,8 +110,8 @@ private:
 	std::string md5;
 	std::string shortname;
 	std::string baseUrl;
-	std::string depends;
 	std::string sdpPath;
+	std::vector<std::string> depends;
 	bool downloaded = false;
 };
 
