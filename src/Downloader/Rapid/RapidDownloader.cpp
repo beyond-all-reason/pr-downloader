@@ -145,9 +145,6 @@ bool CRapidDownloader::setOption(const std::string& key,
 		reposgzurl = value;
 		return true;
 	}
-	if (key == "forceupdate") {
-		return true;
-	}
 	return IDownloader::setOption(key, value);
 }
 
