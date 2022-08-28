@@ -183,7 +183,7 @@ bool DownloadSetConfig(CONFIG type, const void* value)
 			return true;
 		}
 		case CONFIG_FETCH_DEPENDS:
-			fetchDepends = (const bool*)value;
+			fetchDepends = *static_cast<const bool*>(value);
 			return true;
 	}
 	return false;
