@@ -50,18 +50,14 @@ bool CRapidDownloader::list_compare(const CSdp& first, const CSdp& second)
 	return false;
 }
 
-bool CRapidDownloader::download_name(IDownload* download, int reccounter,
-				     std::string name)
+bool CRapidDownloader::download_name(IDownload* download)
 {
-	LOG_DEBUG("%s %s", name.c_str(), download->name.c_str());
-	if (reccounter > 10)
-		return false;
+	LOG_DEBUG("%s", download->name.c_str());
 	LOG_DEBUG("Using rapid to download %s", download->name.c_str());
 	std::set<std::string> downloaded;
 
 	for (CSdp& sdp : sdps) {
-		if (!match_download_name(sdp.getName(),
-					 name.empty() ? download->name : name)) {
+		if (!match_download_name(sdp.getName(), download->name)) {
 			continue;
 		}
 
@@ -76,21 +72,20 @@ bool CRapidDownloader::download_name(IDownload* download, int reccounter,
 		if (!sdp.download(download)) {
 			return false;
 		}
-		if (sdp.getDepends().empty()) {
-			continue;
-		}
-		if (!download_name(download, reccounter + 1, sdp.getDepends())) {
-			return false;
-		}
 	}
 	return true;
 }
 
 bool CRapidDownloader::search(std::list<IDownload*>& result,
-			      const std::string& name,
-			      DownloadEnum::Category cat)
+                              const std::string& name_,
+                              DownloadEnum::Category cat)
 {
+	std::string name = name_;
 	LOG_DEBUG("%s", name.c_str());
+	// To make sure that both rapid://zk:stable and zk:stable works.
+	if (name.find("rapid://") == 0) {
+		name = name.substr(8);
+	}
 	if (!updateRepos(name)) {
 		return false;
 	}
@@ -101,6 +96,9 @@ bool CRapidDownloader::search(std::list<IDownload*>& result,
 			IDownload* dl =
 			    new IDownload(sdp.getName().c_str(), name, cat, IDownload::TYP_RAPID);
 			dl->addMirror(sdp.getShortName().c_str());
+			for (auto const& dep: sdp.getDepends()) {
+				dl->addDepend(dep);
+			}
 			result.push_back(dl);
 		}
 	}
@@ -115,7 +113,7 @@ bool CRapidDownloader::download(IDownload* download, int /*max_parallel*/)
 		return true;
 	}
 	//updateRepos(download->origin_name); // Disable another repos update (one happens in search() function above, anyway called from main->download())
-	return download_name(download, 0);
+	return download_name(download);
 }
 
 bool CRapidDownloader::match_download_name(const std::string& str1,

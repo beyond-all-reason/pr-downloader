@@ -21,14 +21,13 @@
 #include "Downloader/CurlWrapper.h"
 #include "Downloader/Download.h"
 
-CSdp::CSdp(const std::string& shortname, const std::string& md5,
-	   const std::string& name, const std::string& depends,
-	   const std::string& baseUrl)
-    : name(name)
-    , md5(md5)
-    , shortname(shortname)
-    , baseUrl(baseUrl)
-    , depends(depends)
+CSdp::CSdp(std::string shortname_, std::string md5_, std::string name_,
+           std::vector<std::string> depends_, std::string baseUrl_)
+    : name(std::move(name_))
+    , md5(std::move(md5_))
+    , shortname(std::move(shortname_))
+    , baseUrl(std::move(baseUrl_))
+    , depends(std::move(depends_))
 {
 	memset(cursize_buf, 0, LENGTH_SIZE);
 	const std::string dir =
