@@ -32,9 +32,6 @@ CSdp::CSdp(std::string shortname_, std::string md5_, std::string name_,
 	memset(cursize_buf, 0, LENGTH_SIZE);
 	const std::string dir =
 	    fileSystem->getSpringDir() + PATH_DELIMITER + "packages" + PATH_DELIMITER;
-	if (!fileSystem->directoryExists(dir)) {
-		fileSystem->createSubdirs(dir);
-	}
 	sdpPath = dir + md5 + ".sdp";
 }
 
