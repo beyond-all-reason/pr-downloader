@@ -5,6 +5,10 @@
 #ifndef PR_DOWNLOADER_H
 #define PR_DOWNLOADER_H
 
+#include <vector>
+#include <string>
+#include <utility>
+
 #include "Downloader/DownloadEnum.h"
 
 #define NAME_LEN 1024
@@ -36,6 +40,20 @@ extern bool DownloadAdd(unsigned int id);
 * @see downloadSearchGetId
 */
 extern int DownloadSearch(DownloadEnum::Category category, const char* name);
+
+struct DownloadSearchItem {
+	DownloadSearchItem(DownloadEnum::Category category_, std::string name_)
+	  : name(name_), category(category_) {}
+
+	const std::string name;
+	DownloadEnum::Category category;
+	bool found = false;
+};
+
+/* Same as DownloadSearch but allows to search for multiple items in single call
+ * returns -1 on issues, else count of succesfully found items.
+*/
+extern int DownloadSearch(std::vector<DownloadSearchItem>& items);
 
 /**
 *	get info about a result / current download

@@ -27,8 +27,8 @@ public:
 	/**
           search for a mod, searches for the short + long name
   */
-	bool search(std::list<IDownload*>& result, const std::string& name,
-		    DownloadEnum::Category = DownloadEnum::CAT_NONE) override;
+	bool search(std::list<IDownload*>& result,
+	            const std::vector<DownloadSearchItem*>& items) override;
 	/**
           start a download
   */

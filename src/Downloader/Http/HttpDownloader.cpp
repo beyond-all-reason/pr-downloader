@@ -202,17 +202,25 @@ bool CHttpDownloader::ParseResult(const std::string& /*name*/,
 }
 
 bool CHttpDownloader::search(std::list<IDownload*>& res,
-			     const std::string& name,
-			     DownloadEnum::Category cat)
+                             const std::vector<DownloadSearchItem*>& items)
 {
-	LOG_DEBUG("%s", name.c_str());
-	std::string dlres;
-	const std::string url = getRequestUrl(name, cat);
-	if (!DownloadUrl(url, dlres)) {
-		LOG_ERROR("Error downloading %s %s", url.c_str(), dlres.c_str());
-		return false;
+	for (auto& item: items) {
+		if (item->found) {
+			continue;
+		}
+		LOG_DEBUG("%s", item->name.c_str());
+		std::string dlres;
+		const std::string url = getRequestUrl(item->name, item->category);
+		if (!DownloadUrl(url, dlres)) {
+			LOG_ERROR("Error downloading %s %s", url.c_str(), dlres.c_str());
+			return false;
+		}
+		if (!ParseResult(item->name, dlres, res)) {
+			return false;
+		}
+		item->found = true;
 	}
-	return ParseResult(name, dlres, res);
+	return true;
 }
 
 template<class F>
