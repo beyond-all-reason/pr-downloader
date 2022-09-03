@@ -77,29 +77,42 @@ bool CRapidDownloader::download_name(IDownload* download)
 }
 
 bool CRapidDownloader::search(std::list<IDownload*>& result,
-                              const std::string& name_,
-                              DownloadEnum::Category cat)
+                              const std::vector<DownloadSearchItem*>& items)
 {
-	std::string name = name_;
-	LOG_DEBUG("%s", name.c_str());
-	// To make sure that both rapid://zk:stable and zk:stable works.
-	if (name.find("rapid://") == 0) {
-		name = name.substr(8);
-	}
-	if (!updateRepos(name)) {
-		return false;
-	}
-	sdps.sort(list_compare);
-	for (const CSdp& sdp : sdps) {
-		if (match_download_name(sdp.getShortName(), name) ||
-		    (match_download_name(sdp.getName(), name))) {
-			IDownload* dl =
-			    new IDownload(sdp.getName().c_str(), name, cat, IDownload::TYP_RAPID);
-			dl->addMirror(sdp.getShortName().c_str());
-			for (auto const& dep: sdp.getDepends()) {
-				dl->addDepend(dep);
+	for (auto& item: items) {
+		if (item->found) {
+			continue;
+		}
+
+		// To make sure that both rapid://zk:stable and zk:stable works.
+		std::string name;
+		if (item->name.find("rapid://") == 0) {
+			name = item->name.substr(8);
+		} else {
+			name = item->name;
+		}
+
+		LOG_DEBUG("%s", item->name.c_str());
+		if (!updateRepos(name)) {
+			return false;
+		}
+		sdps.sort(list_compare);
+		for (const CSdp& sdp : sdps) {
+			if (match_download_name(sdp.getShortName(), name) ||
+			    (match_download_name(sdp.getName(), name))) {
+				item->found = true;
+				// We concatenate "rapid://" for origin name to have better
+				// deduplication when resolving depends that are using uri scheme for
+				// rapid tags.
+				IDownload* dl =
+				    new IDownload(sdp.getName().c_str(), "rapid://" + name, item->category, IDownload::TYP_RAPID);
+				dl->addMirror(sdp.getShortName().c_str());
+				for (auto const& dep: sdp.getDepends()) {
+					assert(!dep.empty());
+					dl->addDepend(dep);
+				}
+				result.push_back(dl);
 			}
-			result.push_back(dl);
 		}
 	}
 	return true;

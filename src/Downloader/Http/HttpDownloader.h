@@ -16,8 +16,8 @@ class DownloadData;
 class CHttpDownloader : public IDownloader
 {
 public:
-	virtual bool search(std::list<IDownload*>& result, const std::string& name,
-			    DownloadEnum::Category = DownloadEnum::CAT_NONE) override;
+	virtual bool search(std::list<IDownload*>& result,
+	                    const std::vector<DownloadSearchItem*>& items) override;
 	virtual bool download(std::list<IDownload*>& download,
 			      int max_parallel = 10) override;
 	static bool DownloadUrl(const std::string& url, std::string& res);

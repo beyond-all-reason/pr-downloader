@@ -1,4 +1,5 @@
 #include "pr-downloader.h"
+#include "Downloader/Download.h"
 #include "Downloader/IDownloader.h"
 #include "FileSystem/FileSystem.h"
 #include "Logger.h"
@@ -6,9 +7,12 @@
 #include "lib/base64/base64.h"
 #include "lsl/lslutils/platform.h"
 
+#include <string>
+#include <unordered_set>
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <vector>
 
 static bool fetchDepends = true;
 
@@ -94,57 +98,58 @@ int DownloadAddByUrl(DownloadEnum::Category cat, const char* filename,
 	return searchres.size();
 }
 
-bool search(DownloadEnum::Category cat, const char* name,
-	    std::list<IDownload*>& searchres)
+bool search(std::vector<DownloadSearchItem>& items,
+            std::list<IDownload*>& searchres)
 {
-	std::string searchname = name;
+	std::vector<DownloadSearchItem*> http_search;
+	std::vector<DownloadSearchItem*> rapid_search;
 
-	if (cat == DownloadEnum::CAT_ENGINE) {
-		// no platform specified, "translate" to current platform
-		cat = getPlatformEngineCat();
-	}
-
-	switch (cat) {
-		case DownloadEnum::CAT_HTTP: // no search possible!
-		case DownloadEnum::CAT_SPRINGLOBBY: {
-			return false;
+	for (auto& item: items) {
+		if (item.category == DownloadEnum::CAT_ENGINE) {
+			// no platform specified, "translate" to current platform
+			item.category = getPlatformEngineCat();
 		}
-		case DownloadEnum::CAT_MAP:
-		case DownloadEnum::CAT_ENGINE_LINUX:
-		case DownloadEnum::CAT_ENGINE_LINUX64:
-		case DownloadEnum::CAT_ENGINE_WINDOWS:
-		case DownloadEnum::CAT_ENGINE_WINDOWS64:
-		case DownloadEnum::CAT_ENGINE_MACOSX:
-			return httpDownload->search(searchres, searchname.c_str(), cat);
-		case DownloadEnum::CAT_GAME:
-		case DownloadEnum::CAT_COUNT:
-		case DownloadEnum::CAT_NONE:
-			if (!rapidDownload->search(searchres, searchname.c_str(), cat)) {
+		switch (item.category) {
+			case DownloadEnum::CAT_HTTP: // no search possible!
+			case DownloadEnum::CAT_SPRINGLOBBY: {
 				return false;
 			}
-			if (!searchres.empty()) {
-				return true;
-			}
-			if (!httpDownload->search(searchres, searchname.c_str(), cat)) {
+			case DownloadEnum::CAT_GAME:
+			case DownloadEnum::CAT_COUNT:
+			case DownloadEnum::CAT_NONE:
+				rapid_search.push_back(&item);
+				// fallback
+			case DownloadEnum::CAT_MAP:
+			case DownloadEnum::CAT_ENGINE_LINUX:
+			case DownloadEnum::CAT_ENGINE_LINUX64:
+			case DownloadEnum::CAT_ENGINE_WINDOWS:
+			case DownloadEnum::CAT_ENGINE_WINDOWS64:
+			case DownloadEnum::CAT_ENGINE_MACOSX:
+				http_search.push_back(&item);
+				break;
+			default:
+				LOG_ERROR("%s: type invalid", __FUNCTION__);
+				assert(false);
 				return false;
-			}
-			if (!searchres.empty()) {
-				return true;
-			}
-			return false;
-		default:
-			LOG_ERROR("%s: type invalid", __FUNCTION__);
-			assert(false);
-			return false;
+		}
 	}
-	return true;
+	return rapidDownload->search(searchres, rapid_search) &&
+	       httpDownload->search(searchres, http_search);
+}
+
+int DownloadSearch(std::vector<DownloadSearchItem>& items) {
+	IDownloader::freeResult(searchres);
+	downloads.clear();
+	if (!search(items, searchres)) {
+		return -1;
+	}
+	return searchres.size();
 }
 
 int DownloadSearch(DownloadEnum::Category cat, const char* name)
 {
-	IDownloader::freeResult(searchres);
-	downloads.clear();
-	search(cat, name, searchres);
+	std::vector<DownloadSearchItem> items = {DownloadSearchItem(cat, name)};
+	DownloadSearch(items);
 	return searchres.size();
 }
 
@@ -212,28 +217,47 @@ bool DownloadAdd(unsigned int id)
 	return true;
 }
 
-bool dlListContains(const std::list<IDownload*>& dls,
-		    const std::string& name)
-{
-	for (const IDownload* dl : dls) {
-		if (dl->name == name) {
-			return true;
-		}
-	}
-	return false;
-}
-
 bool addDepends(std::list<IDownload*>& dls)
 {
-	for (const IDownload* dl : dls) {
-		for (const std::string& depend : dl->depend) {
-			std::list<IDownload*> depends;
-			search(DownloadEnum::CAT_COUNT, depend.c_str(), depends);
-			LOG_INFO("Adding depend %s", depend.c_str());
-			for (IDownload* newdep : depends) {
-				if (!dlListContains(dls, newdep->name)) {
-					dls.push_back(newdep);
+	std::unordered_set<std::string> dls_set, depends_set;
+	for (auto dl: dls) {
+		dls_set.insert(dl->name);
+		dls_set.insert(dl->origin_name);
+	}
+	std::vector<IDownload*> download_dep(dls.begin(), dls.end());
+	while(!download_dep.empty()) {
+		std::vector<DownloadSearchItem> depend_items;
+		for (IDownload* dl: download_dep) {
+			for (const std::string& depend: dl->depend) {
+				if (depends_set.find(depend) == depends_set.end() &&
+				    dls_set.find(depend) == dls_set.end()) {
+					depends_set.insert(depend);
+					depend_items.emplace_back(DownloadEnum::CAT_NONE, depend);
 				}
+			}
+		}
+
+		std::list<IDownload*> depends_dls;
+		if (!search(depend_items, depends_dls)) {
+			return false;
+		}
+		for (auto const& item: depend_items) {
+			if (!item.found) {
+				LOG_ERROR("Failed to find dependency %s", item.name.c_str());
+				return false;
+			}
+		}
+
+		download_dep.clear();
+		for (IDownload* dl: depends_dls) {
+			if (dls_set.find(dl->name) == dls_set.end()) {
+				dls.push_back(dl);
+				// TODO FIXME: Not a nice hack to make sure that download
+				// is goind to be freed when searchres is cleaned up.
+				searchres.push_back(dl);
+				download_dep.push_back(dl);
+				dls_set.insert(dl->name);
+				dls_set.insert(dl->origin_name);
 			}
 		}
 	}

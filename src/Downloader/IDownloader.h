@@ -4,10 +4,12 @@
 #define I_DOWNLOADER_H
 
 #include "Download.h"
+#include "pr-downloader.h"
 
+#include <cstdio>
 #include <list>
 #include <string>
-#include <stdio.h>
+#include <vector>
 
 typedef void (*IDownloaderProcessUpdateListener)(int done, int size);
 
@@ -55,8 +57,8 @@ public:
   *	@see freeResult
   */
 	virtual bool
-	search(std::list<IDownload*>& result, const std::string& name = "",
-	       const DownloadEnum::Category = DownloadEnum::CAT_NONE) = 0;
+	search(std::list<IDownload*>& result,
+	       const std::vector<DownloadSearchItem*>& items) = 0;
 
 	/**
   *	free's a result list
