@@ -9,12 +9,12 @@
 #include <list>
 #include <stdio.h>
 
-IDownload::IDownload(const std::string& name, const std::string& origin_name,
-		     DownloadEnum::Category cat, download_type typ)
-    : cat(cat)
-    , dltype(typ)
-    , name(name)
-    , origin_name(origin_name)
+IDownload::IDownload(std::string name_, std::string origin_name_,
+                     DownloadEnum::Category cat_, download_type typ_)
+    : cat(cat_)
+    , dltype(typ_)
+    , name(std::move(name_))
+    , origin_name(std::move(origin_name_))
 {
 }
 

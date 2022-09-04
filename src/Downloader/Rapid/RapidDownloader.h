@@ -42,14 +42,9 @@ public:
   */
 private:
 	/**
-          lists all tags on all servers
-  */
-	void list_tag();
-	/**
           remove a dsp from the list of remote dsps
   */
-	void downloadRepo(const std::string& url);
-	bool updateRepos(const std::string& searchstr);
+	bool updateRepos(const std::vector<std::string>& searchstrs);
 	bool parse();
 	bool UpdateReposGZ();
 	std::string path;
