@@ -7,14 +7,16 @@
 #include "Repo.h"
 #include "Sdp.h"
 
-#include <stdio.h>
-#include <string>
-#include <string.h>
-#include <cstdlib>
-#include <list>
-#include <zlib.h>
 #include <algorithm> //std::min
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <list>
 #include <set>
+#include <string>
+#include <string_view>
+#include <unordered_set>
+#include <zlib.h>
 
 #ifndef _WIN32
 #include <regex.h>
@@ -76,36 +78,53 @@ bool CRapidDownloader::download_name(IDownload* download)
 	return true;
 }
 
+static std::string stripRapidUri(std::string_view name) {
+	if (name.find("rapid://") == 0) {
+		return std::string(name.substr(8));
+	};
+	return std::string(name);
+}
+
+static std::string ensureRapidUri(std::string_view name) {
+	if (name.find("rapid://") == 0) {
+		return std::string(name);
+	}
+	return "rapid://" + std::string(name);
+}
+
 bool CRapidDownloader::search(std::list<IDownload*>& result,
                               const std::vector<DownloadSearchItem*>& items)
 {
+	std::vector<std::string> to_update;
 	for (auto& item: items) {
 		if (item->found) {
 			continue;
 		}
+		to_update.emplace_back(stripRapidUri(item->name));
+	}
 
+	if (!updateRepos(to_update)) {
+		return false;
+	}
+
+	sdps.sort(list_compare);
+
+	for (auto& item: items) {
+		if (item->found) {
+			continue;
+		}
 		// To make sure that both rapid://zk:stable and zk:stable works.
-		std::string name;
-		if (item->name.find("rapid://") == 0) {
-			name = item->name.substr(8);
-		} else {
-			name = item->name;
-		}
-
-		LOG_DEBUG("%s", item->name.c_str());
-		if (!updateRepos(name)) {
-			return false;
-		}
-		sdps.sort(list_compare);
+		auto name = stripRapidUri(item->name);
 		for (const CSdp& sdp : sdps) {
 			if (match_download_name(sdp.getShortName(), name) ||
-			    (match_download_name(sdp.getName(), name))) {
+			    match_download_name(sdp.getName(), name)) {
 				item->found = true;
-				// We concatenate "rapid://" for origin name to have better
+				// We ensure "rapid://" uri for origin name to have better
 				// deduplication when resolving depends that are using uri scheme for
 				// rapid tags.
 				IDownload* dl =
-				    new IDownload(sdp.getName().c_str(), "rapid://" + name, item->category, IDownload::TYP_RAPID);
+				    new IDownload(sdp.getName().c_str(), ensureRapidUri(item->name),
+				                  item->category, IDownload::TYP_RAPID);
 				dl->addMirror(sdp.getShortName().c_str());
 				for (auto const& dep: sdp.getDepends()) {
 					assert(!dep.empty());
@@ -236,34 +255,42 @@ bool CRapidDownloader::parse()
 	return res;
 }
 
-bool CRapidDownloader::updateRepos(const std::string& searchstr)
+bool CRapidDownloader::updateRepos(const std::vector<std::string>& searchstrs)
 {
-	std::string tag = "";
-	const std::string::size_type pos = searchstr.find(':');
-	if (pos != std::string::npos) { // a tag is found, set it
-		tag = searchstr.substr(0, pos);
-	}
-
 	LOG_DEBUG("%s", "Updating repos...");
 	if (!UpdateReposGZ()) {
 		return false;
 	}
 
 	std::list<IDownload*> dls;
-	std::list<CRepo*> usedrepos;
-	for (CRepo& repo : repos) {
-		if (tag != "" && repo.getShortName() != tag) {
-			continue;
+	std::unordered_set<CRepo*> usedrepos;
+
+	for (auto const& searchstr: searchstrs) {
+		std::string tag = "";
+		const std::string::size_type pos = searchstr.find(':');
+		if (pos != std::string::npos) { // a tag is found, set it
+			tag = searchstr.substr(0, pos);
 		}
-		IDownload* dl = repo.getDownload();
-		if (dl == nullptr) {
-			continue;
+		for (CRepo& repo : repos) {
+			if (tag != "" && repo.getShortName() != tag) {
+				continue;
+			}
+			if (usedrepos.find(&repo) == usedrepos.end()) {
+				IDownload* dl = repo.getDownload();
+				if (dl == nullptr) {
+					continue;
+				}
+				usedrepos.insert(&repo);
+				dls.push_back(dl);
+			}
 		}
-		usedrepos.push_back(&repo);
-		dls.push_back(dl);
 	}
-	LOG_DEBUG("Downloading ...");
-	httpDownload->download(dls);
+
+	LOG_DEBUG("Downloading version.gz updates...");
+	if (!httpDownload->download(dls)) {
+		IDownloader::freeResult(dls);
+		return false;
+	}
 	bool ok = true;
 	for (CRepo* repo : usedrepos) {
 		if (!repo->parse()) {

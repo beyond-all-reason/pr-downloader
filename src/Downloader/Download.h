@@ -24,7 +24,7 @@ public:
 	enum download_type { TYP_RAPID,
 			     TYP_HTTP } dltype;
 
-	IDownload(const std::string& filename = "", const std::string& orig_name = "",
+	IDownload(std::string filename = "", std::string orig_name = "",
 		  DownloadEnum::Category cat = DownloadEnum::CAT_NONE,
 		  download_type typ = TYP_HTTP);
 	/**

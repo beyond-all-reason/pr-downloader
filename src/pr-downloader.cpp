@@ -238,7 +238,7 @@ bool addDepends(std::list<IDownload*>& dls)
 		}
 
 		std::list<IDownload*> depends_dls;
-		if (!search(depend_items, depends_dls)) {
+		if (!depend_items.empty() && !search(depend_items, depends_dls)) {
 			return false;
 		}
 		for (auto const& item: depend_items) {
