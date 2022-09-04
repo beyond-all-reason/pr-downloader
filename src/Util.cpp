@@ -118,4 +118,29 @@ std::string ws2s(const std::wstring& s)
 	return r;
 }
 
+void ensureUtf8Argv(int *argc, char*** argv)
+{
+	static std::vector<std::string> argv_strings;
+	static std::vector<const char*> argv_data;
+	static int win32_argc = 0;
+	if (win32_argc == 0) {
+		wchar_t** argv_w = CommandLineToArgvW(GetCommandLineW(), &win32_argc);
+		argv_strings.reserve(win32_argc);
+		argv_data.reserve(win32_argc);
+		for (int i = 0; i < win32_argc; ++i) {
+			argv_strings.emplace_back(ws2s(argv_w[i]));
+			argv_data.emplace_back(argv_strings.back().c_str());
+		}
+		LocalFree(argv_w);
+	}
+	*argc = win32_argc;
+	*argv = const_cast<char**>(argv_data.data());
+}
+
+#else
+
+void ensureUtf8Argv(int *argc, char*** argv)
+{
+}
+
 #endif

@@ -9,9 +9,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <string>
 #include <getopt.h>
-#include <list>
 
 // TODO: Many of these enums are not implemented.
 // e.g. RAPID_VALIDATE_DELETE, ...
@@ -109,6 +107,7 @@ bool download(DownloadEnum::Category cat, const char* name)
 
 int main(int argc, char** argv)
 {
+	ensureUtf8Argv(&argc, &argv);
 	show_version();
 	if (argc < 2)
 		show_help(argv[0]);

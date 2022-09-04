@@ -51,4 +51,10 @@ bool urlToPath(const std::string& url, std::string& path);
 std::string ws2s(const std::wstring& s);
 std::wstring s2ws(const std::string& s);
 
+/*
+        To be called as first thing in the program, ensures that argv is utf8
+        encoded on all platforms.
+*/
+void ensureUtf8Argv(int *argc, char*** argv);
+
 #endif
