@@ -361,6 +361,7 @@ def fail_requests_resolver(
 class TestDownloading(unittest.TestCase):
     pr_downloader_path: ClassVar[str]
     keep_temp_files: ClassVar[bool]
+    coverage_profiles_path: ClassVar[Optional[str]]
     rapid: RapidRoot
     serving_root: str
     dest_root: str
@@ -373,20 +374,24 @@ class TestDownloading(unittest.TestCase):
                 prefix='pr-run-', delete=not self.keep_temp_files) as out:
             if self.keep_temp_files:
                 print(f'run output: {out.name}')
-            res = subprocess.run(
-                [
-                    self.pr_downloader_path, '--filesystem-writepath',
-                    self.dest_root, '--rapid-download', shortname
-                ],
-                stderr=subprocess.STDOUT,
-                stdout=out,
-                timeout=10,
-                env={
-                    'PRD_RAPID_REPO_MASTER':
-                        f'{self.rapid.base_url}/{self.rapid.rapid_filename()}',
-                    'PRD_RAPID_USE_STREAMER':
-                        'true' if use_streamer else 'false',
-                })
+            env = {
+                'PRD_RAPID_REPO_MASTER':
+                    f'{self.rapid.base_url}/{self.rapid.rapid_filename()}',
+                'PRD_RAPID_USE_STREAMER':
+                    'true' if use_streamer else 'false',
+            }
+            if self.coverage_profiles_path is not None:
+                env['LLVM_PROFILE_FILE'] = os.path.join(
+                    self.coverage_profiles_path,
+                    f'{os.path.basename(out.name)}.profraw')
+            res = subprocess.run([
+                self.pr_downloader_path, '--filesystem-writepath',
+                self.dest_root, '--rapid-download', shortname
+            ],
+                                 stderr=subprocess.STDOUT,
+                                 stdout=out,
+                                 timeout=10,
+                                 env=env)
             return res.returncode
 
     def verify_downloaded_rapid(self, archive: str | Archive) -> bool:
@@ -591,6 +596,9 @@ class TestDownloading(unittest.TestCase):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument('--pr-downloader-path', required=True)
+    parser.add_argument(
+        '--coverage-profiles-path',
+        help='Path to directory where to store LLVM code coverage profiles.')
     parser.add_argument('-k',
                         '--keep-temp-files',
                         action=argparse.BooleanOptionalAction,
@@ -598,4 +606,5 @@ if __name__ == '__main__':
     args, remaining_argv = parser.parse_known_args()
     TestDownloading.pr_downloader_path = args.pr_downloader_path
     TestDownloading.keep_temp_files = args.keep_temp_files
+    TestDownloading.coverage_profiles_path = args.coverage_profiles_path
     unittest.main(argv=sys.argv[:1] + remaining_argv)
