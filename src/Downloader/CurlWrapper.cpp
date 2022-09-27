@@ -84,8 +84,10 @@ static void ConfigureCertificates()
 static void SetCAOptions(CURL* handle)
 {
 #ifdef _WIN32
-	// CURLSSLOPT_NATIVE_CA was added in curl 7.71.0
-	curl_easy_setopt(handle, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NATIVE_CA);
+	if (certFile == nullptr && certDir == nullptr) {
+		// CURLSSLOPT_NATIVE_CA was added in curl 7.71.0
+		curl_easy_setopt(handle, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NATIVE_CA);
+	}
 #endif
 
 	if (certFile != nullptr) {
