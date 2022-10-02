@@ -320,17 +320,19 @@ static bool setupDownload(CURLM* curlm, DownloadData* piece)
 		LOG_DEBUG("Not Validating TLS");
 		curl_easy_setopt(curle, CURLOPT_SSL_VERIFYPEER, 0);
 	}
-	if (fileSystem->fileExists(piece->download->name)) {
-		// this sets the header If-Modified-Since -> downloads only when remote file
-		// is newer than local file
-		const long timestamp = fileSystem->getFileTimestamp(piece->download->name);
-		if (timestamp >= 0 && piece->download->hash == nullptr) {
-			// timestamp known + hash not known -> only dl when changed
-			curl_easy_setopt(curle, CURLOPT_TIMECONDITION, CURL_TIMECOND_IFMODSINCE);
-			curl_easy_setopt(curle, CURLOPT_TIMEVALUE, timestamp);
-			curl_easy_setopt(curle, CURLOPT_FILETIME, 1);
-		}
-	}
+	// TODO: Replace with ETag based caching because If-Modified-Since
+	//       can be pretty unreliable and racy in certain situations.
+	// if (fileSystem->fileExists(piece->download->name)) {
+	// 	// this sets the header If-Modified-Since -> downloads only when remote file
+	// 	// is newer than local file
+	// 	const long timestamp = fileSystem->getFileTimestamp(piece->download->name);
+	// 	if (timestamp >= 0 && piece->download->hash == nullptr) {
+	// 		// timestamp known + hash not known -> only dl when changed
+	// 		curl_easy_setopt(curle, CURLOPT_TIMECONDITION, CURL_TIMECOND_IFMODSINCE);
+	// 		curl_easy_setopt(curle, CURLOPT_TIMEVALUE, timestamp);
+	// 		curl_easy_setopt(curle, CURLOPT_FILETIME, 1);
+	// 	}
+	// }
 
 	curl_multi_add_handle(curlm, curle);
 	return true;
