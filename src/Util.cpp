@@ -95,6 +95,7 @@ bool urlToPath(const std::string& url, std::string& path)
 
 #ifdef _WIN32
 #include <windows.h>
+#include <shellapi.h>
 std::wstring s2ws(const std::string& s)
 {
 	const size_t slength = s.length();
