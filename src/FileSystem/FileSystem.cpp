@@ -15,8 +15,8 @@
 #include <list>
 #include <string>
 #include <sys/stat.h>
-#include <dirent.h>
 #include <stdlib.h>
+#include <filesystem>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -284,77 +284,48 @@ std::string CFileSystem::getPoolFilename(const std::string& md5str) const
 	 + ".gz";
 }
 
-int CFileSystem::validatePool(const std::string& path, bool deletebroken)
+bool CFileSystem::validatePool(const std::string& path, bool deletebroken)
 {
 	if (!directoryExists(path)) {
 		LOG_ERROR("Pool directory doesn't exist: %s", path.c_str());
 		return 0;
 	}
-	int res = 0;
-	std::list<std::string> dirs;
-	dirs.push_back(path);
-	const int maxdirs = 257; // FIXME: unknown dirs in pool will break bar
-	int finished = 0;
-	IHash* md5 = new HashMD5();
-	while (!dirs.empty()) {
-		const std::string dir = dirs.front();
-		dirs.pop_front();
-		DIR* d = opendir(dir.c_str());
-		dirent* dentry;
-		while ((dentry = readdir(d)) != nullptr) {
-			LOG_PROGRESS(finished, maxdirs);
-			const std::string absname = dir + PATH_DELIMITER + dentry->d_name;
-			// don't check hidden files / . / ..
-			if (dentry->d_name[0] == '.') {
-				continue;
-			}
-#ifndef _WIN32
-			if ((dentry->d_type & DT_DIR) != 0) { // directory
-#else
-			struct stat sb;
-			stat(absname.c_str(), &sb);
-			if ((sb.st_mode & S_IFDIR) != 0) {
-#endif
-				dirs.push_back(absname);
-				continue;
-			}
 
-			const int len = absname.length();
-			if (len < 36) { // file length has at least to be
-					// <md5[0]><md5[1]>/<md5[2-30]>.gz
-				LOG_ERROR("Invalid file: %s", absname.c_str());
-				continue;
-			}
+	std::vector<std::pair<std::filesystem::path, HashMD5>> files_to_validate;
+	for (const std::filesystem::directory_entry& dir_entry:
+	     std::filesystem::recursive_directory_iterator(std::filesystem::u8path(path))) {
+		auto const& p = dir_entry.path();
+		if (!dir_entry.is_regular_file() || p.extension() == ".tmp") {
+			continue;
+		}
+		HashMD5 md5;
+		if (!md5.IHash::Set(p.parent_path().filename().string() + p.stem().string())) {
+			LOG_WARN("Invalid file name, ignoring: %s", p.u8string().c_str());
+			continue;
+		}
+		files_to_validate.emplace_back(p, md5);
+	}
 
-			std::string md5str;
-			 // get md5 from path + filename
-			md5str.push_back(absname.at(len - 36));
-			md5str.push_back(absname.at(len - 35));
-			md5str.append(absname.substr(len - 33, 30));
-			md5->Set(md5str);
-			FileData filedata;
-			for (unsigned i = 0; i < 16; i++) {
-				filedata.md5[i] = md5->get(i);
-			}
-
-			if (!fileIsValid(&filedata, absname)) { // check if md5 in filename
-								// is the same as in
-								// filename
-				LOG_ERROR("Invalid File in pool: %s", absname.c_str());
-				if (deletebroken) {
-					removeFile(absname);
-				}
-			} else {
-				res++;
+	bool ok = true;
+	int progress = 0;
+	LOG_PROGRESS(progress, files_to_validate.size());
+	for (const auto& [path, md5]: files_to_validate) {
+		FileData filedata;
+		for (unsigned i = 0; i < 16; i++) {
+			filedata.md5[i] = md5.get(i);
+		}
+		const auto path_str = path.u8string();
+		if (!fileIsValid(&filedata, path_str)) {
+			ok = false;
+			LOG_ERROR("Invalid File in pool: %s", path_str.c_str());
+			if (deletebroken) {
+				removeFile(path_str);
 			}
 		}
-		finished++;
-		closedir(d);
+		++progress;
+		LOG_PROGRESS(progress, files_to_validate.size(), progress == files_to_validate.size());
 	}
-	delete md5;
-	LOG_PROGRESS(finished, maxdirs, true);
-	LOG("");
-	return res;
+	return ok;
 }
 
 bool CFileSystem::isOlder(const std::string& filename, int secs)
