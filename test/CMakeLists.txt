@@ -1,8 +1,8 @@
 
 
-FIND_PACKAGE(Boost 1.35.0 COMPONENTS unit_test_framework)
+FIND_PACKAGE(Boost 1.35.0 COMPONENTS unit_test_framework signals2)
 IF(NOT Boost_FOUND)
-	Message(STATUS "Note: Unit tests will not be built: Boost::test library was not found")
+	Message(STATUS "Note: Unit tests will not be built: Boost::test, Boost::signals2 library was not found")
 Else()
 	add_custom_target(checkDownloader ${CMAKE_CTEST_COMMAND} --output-on-failure)
 	If (NOT (WIN32 OR Boost_USE_STATIC_LIBS))
