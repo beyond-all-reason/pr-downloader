@@ -66,7 +66,7 @@ private:
 	/**
   * convert hex to int
   */
-	unsigned getVal(char c);
+	int getVal(char c);
 };
 
 #endif
