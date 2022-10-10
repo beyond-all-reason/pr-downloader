@@ -53,7 +53,7 @@ const std::string IHash::toString(const unsigned char* data, int size) const
 	return str;
 }
 
-unsigned IHash::getVal(char c)
+int IHash::getVal(char c)
 {
 	if ((c >= '0') && (c <= '9'))
 		return c - '0';
@@ -61,7 +61,7 @@ unsigned IHash::getVal(char c)
 		return c - 'a' + 10;
 	if ((c >= 'A') && (c <= 'F'))
 		return c - 'A' + 10;
-	return 0;
+	return -1;
 }
 
 bool IHash::Set(const std::string& hash)
@@ -76,7 +76,13 @@ bool IHash::Set(const std::string& hash)
 		return false;
 	}
 	for (unsigned i = 0; i < hash.size() / 2; i++) {
-		buf[i] = getVal(hash.at((i * 2) + 1)) + getVal(hash.at(i * 2)) * 16;
+		int h = getVal(hash.at(i * 2)) * 16;
+		int l = getVal(hash.at((i * 2) + 1));
+		if (h < 0 || l < 0) {
+			LOG_ERROR("IHash::Set(): invalid character");
+			return false;
+		}
+		buf[i] = l + h;
 	}
 	if (!Set(buf, hash.size() / 2)) {
 		LOG_ERROR("IHash:Set(): Error setting");
