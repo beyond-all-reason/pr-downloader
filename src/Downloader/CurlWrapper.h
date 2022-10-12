@@ -16,6 +16,7 @@ public:
 	static std::string EscapeUrl(const std::string& url);
 	static void InitCurl();
 	static void KillCurl();
+	static CURLM* GetMultiHandle();
 	void AddHeader(const std::string& header);
 private:
 
