@@ -163,6 +163,13 @@ std::string CurlWrapper::EscapeUrl(const std::string& url)
 	return out;
 }
 
+// We want to reuse curl multi handle to reuse open connections across transfers.
+CURLM* global_curlm_handle = nullptr;
+
+CURLM* CurlWrapper::GetMultiHandle() {
+	return global_curlm_handle;
+}
+
 void CurlWrapper::InitCurl()
 {
 	DumpVersion();
@@ -172,10 +179,14 @@ void CurlWrapper::InitCurl()
 	if (cert_check_env != nullptr && std::string(cert_check_env) == "true") {
 		verify_certificate = false;
 	}
+	global_curlm_handle = curl_multi_init();
+	curl_multi_setopt(global_curlm_handle, CURLMOPT_PIPELINING, CURLPIPE_MULTIPLEX);
+	curl_multi_setopt(global_curlm_handle, CURLMOPT_MAX_HOST_CONNECTIONS, 5);
 }
 
 void CurlWrapper::KillCurl()
 {
+	curl_multi_cleanup(global_curlm_handle);
 	curl_global_cleanup();
 }
 

@@ -594,9 +594,7 @@ bool CHttpDownloader::download(std::list<IDownload*>& download,
 
 	// Perform actual download using the Curl multi interface.
 	HTTPStats stats;
-	CURLM* curlm = curl_multi_init();
-	curl_multi_setopt(curlm, CURLMOPT_PIPELINING, CURLPIPE_MULTIPLEX);
-	curl_multi_setopt(curlm, CURLMOPT_MAX_TOTAL_CONNECTIONS, 5);
+	CURLM* curlm = CurlWrapper::GetMultiHandle();
 
 	std::vector<DownloadData*> to_retry;
 	auto queue_comparator = [](DownloadData* a, DownloadData* b) {
@@ -678,6 +676,5 @@ abort:
 			data->curlw = nullptr;
 		}
 	}
-	curl_multi_cleanup(curlm);
 	return !aborted;
 }
