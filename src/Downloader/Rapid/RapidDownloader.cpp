@@ -1,6 +1,7 @@
 /* This file is part of pr-downloader (GPL v2 or later), see the LICENSE file */
 
 #include "RapidDownloader.h"
+#include "Downloader/Download.h"
 #include "FileSystem/FileSystem.h"
 #include "Util.h"
 #include "Logger.h"
@@ -15,6 +16,7 @@
 #include <set>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <unordered_set>
 #include <zlib.h>
 
@@ -52,30 +54,33 @@ bool CRapidDownloader::list_compare(const CSdp& first, const CSdp& second)
 	return false;
 }
 
-bool CRapidDownloader::download_name(IDownload* download)
+bool CRapidDownloader::download_name(std::list<IDownload*>& downloads)
 {
-	LOG_DEBUG("%s", download->name.c_str());
-	LOG_DEBUG("Using rapid to download %s", download->name.c_str());
-	std::set<std::string> downloaded;
-
-	for (CSdp& sdp : sdps) {
-		if (!match_download_name(sdp.getName(), download->name)) {
-			continue;
-		}
-
-		// already downloaded, skip (i.e. stable entries are // twice in versions.gz)
-		if (downloaded.find(sdp.getMD5()) != downloaded.end()) {
-			continue;
-		}
-		downloaded.insert(sdp.getMD5());
-
-		LOG_INFO ("[Download] %s", sdp.getName().c_str());
-
-		if (!sdp.download(download)) {
-			return false;
+	std::unordered_map<std::string, IDownload*> found_packages;
+	std::unordered_map<IDownload*, IDownload*> deduped;
+	std::vector<std::pair<CSdp*, IDownload*>> packages;
+	for (auto download: downloads) {
+		LOG_DEBUG("Using rapid to download %s", download->name.c_str());
+		for (CSdp& sdp: sdps) {
+			if (!match_download_name(sdp.getName(), download->name)) {
+				continue;
+			}
+			if (auto it = found_packages.find(sdp.getMD5()); it != found_packages.end()) {
+				if (it->second != download) {
+					deduped[download] = it->second;
+				}
+			} else {
+				found_packages[sdp.getMD5()] = download;
+				LOG_INFO ("[Download] %s", sdp.getName().c_str());
+				packages.emplace_back(&sdp, download);
+			}
 		}
 	}
-	return true;
+	bool ok = CSdp::Download(packages);
+	for (auto [deduped, orig]: deduped) {
+		deduped->state = orig->state;
+	}
+	return ok;
 }
 
 static std::string stripRapidUri(std::string_view name) {
@@ -137,15 +142,15 @@ bool CRapidDownloader::search(std::list<IDownload*>& result,
 	return true;
 }
 
-bool CRapidDownloader::download(IDownload* download, int /*max_parallel*/)
+bool CRapidDownloader::download(std::list<IDownload*>& downloads, int /*max_parallel*/)
 {
-	LOG_DEBUG("%s", download->name.c_str());
-	if (download->dltype != IDownload::TYP_RAPID) { // skip non-rapid downloads
-		LOG_DEBUG("skipping non rapid-dl");
-		return true;
+	std::list<IDownload*> rapid_downloads;
+	for (auto download: downloads) {
+		if (download->dltype == IDownload::TYP_RAPID) {
+			rapid_downloads.emplace_back(download);
+		}
 	}
-	//updateRepos(download->origin_name); // Disable another repos update (one happens in search() function above, anyway called from main->download())
-	return download_name(download);
+	return rapid_downloads.empty() || download_name(rapid_downloads);
 }
 
 bool CRapidDownloader::match_download_name(const std::string& str1,

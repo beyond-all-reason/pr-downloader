@@ -9,6 +9,7 @@
 #include <errno.h>
 #include <unordered_set>
 
+#include "Downloader/IDownloader.h"
 #include "Sdp.h"
 #include "RapidDownloader.h"
 #include "Util.h"
@@ -54,83 +55,111 @@ bool createPoolDirs(const std::string& root)
 	return true;
 }
 
-bool CSdp::downloadSelf(IDownload* /*dl*/)
-{
-	const std::string tmpFile = sdpPath + ".tmp";
-	IDownload tmpdl(tmpFile);
-	tmpdl.addMirror(baseUrl + "/packages/" + md5 + ".sdp");
-	if(!httpDownload->download(&tmpdl)) {
-		LOG_ERROR("Couldn't download %s", (md5 + ".sdp").c_str());
-		return false;
+std::unique_ptr<IDownload> CSdp::parseOrGetDownload() {
+	if (!fileSystem->fileExists(sdpPath) || !fileSystem->parseSdp(sdpPath, files)) {
+		auto dl = std::make_unique<IDownload>(sdpPath);
+		dl->addMirror(baseUrl + "/packages/" + md5 + ".sdp");
+		return dl;
 	}
-
-
-	if (!fileSystem->Rename(tmpFile, sdpPath)) {
-		LOG_ERROR("Couldn't rename %s to %s: %s", tmpFile.c_str(), sdpPath.c_str(), strerror(errno));
-		return false;
-	}
-
-	return true;
+	return nullptr;
 }
 
-bool CSdp::download(IDownload* dl)
-{
-	if (downloaded) // allow download only once of the same sdp
-		return true;
-	m_download = dl;
-	if ((!fileSystem->fileExists(sdpPath)) || (!fileSystem->parseSdp(sdpPath, files))) {// parse downloaded file
-		if (!downloadSelf(dl))
+static std::list<IDownload*> getDownloadsList(const std::vector<std::unique_ptr<IDownload>>& downloads) {
+	std::list<IDownload*> res;
+	for (auto& dl: downloads) {
+		res.emplace_back(dl.get());
+	}
+	return res;
+}
+
+static bool useStreamerDownload() {
+	const char* use_streamer_env = std::getenv("PRD_RAPID_USE_STREAMER");
+	return use_streamer_env == nullptr || std::string(use_streamer_env) != "false";
+}
+
+bool CSdp::Download(std::vector<std::pair<CSdp*, IDownload*>> const& packages) {
+	// Download Sdp packages
+	{
+		std::vector<std::unique_ptr<IDownload>> downloads;
+		for (auto [pkg, _]: packages) {
+			if (auto dl = pkg->parseOrGetDownload(); dl != nullptr) {
+				downloads.emplace_back(std::move(dl));
+			}
+		}
+		auto downloads_list = getDownloadsList(downloads);
+		if (!httpDownload->download(downloads_list)) {
 			return false;
-		if (!fileSystem->parseSdp(sdpPath, files)) {
-			return false;
+		}
+		for (auto [pkg, _]: packages) {
+			if (pkg->parseOrGetDownload() != nullptr) {
+				return false;
+			}
 		}
 	}
 
-	int i = 0;
-	int count = 0;
+	const std::string root = fileSystem->getSpringDir() + PATH_DELIMITER + "pool" + PATH_DELIMITER;
+	if (!createPoolDirs(root)) {
+		LOG_ERROR("Creating pool directories failed");
+		return false;
+	}
+
+	// Prepare files in Sdp packages for download
+	std::vector<std::pair<CSdp*, IDownload*>> to_download;
+	{
+		const auto pool_files = fileSystem->getPoolFiles();
+		if (!pool_files) {
+			return false;
+		}
+		std::unordered_set<std::string> downloaded_md5;
+		for (const auto& [_, md5]: *pool_files) {
+			downloaded_md5.insert(md5.toString());
+		}
+		for (auto [pkg, dl]: packages) {
+			if (pkg->filterDownloaded(downloaded_md5)) {
+				to_download.emplace_back(pkg, dl);
+			} else {
+				dl->state = IDownload::STATE_FINISHED;
+			}
+		}
+	}
+
+	// Do actual download.
+	if (useStreamerDownload()) {
+		for (auto [pkg, dl]: to_download) {
+			pkg->m_download = dl;
+			if (!pkg->downloadStream()) {
+				LOG_ERROR("Couldn't download files for %s", pkg->md5.c_str());
+				// TODO: It should be oposite, mark as done on success
+				fileSystem->removeFile(pkg->sdpPath);
+				return false;
+			}
+			dl->state = IDownload::STATE_FINISHED;
+		}
+	} else {
+		if (!downloadHTTP(to_download)) {
+			return false;
+		}
+		for (auto [_, dl]: to_download) {
+			dl->state = IDownload::STATE_FINISHED;
+		}
+	}
+	return true;
+}
+
+bool CSdp::filterDownloaded(std::unordered_set<std::string> const& downloaded_md5) {
+	bool need_to_download = false;
 	for (FileData& filedata: files) { // check which file are available on local
-	                                   // disk -> create list of files to download
+	                                  // disk -> create list of files to download
 		HashMD5 fileMd5;
-		i++;
 		fileMd5.Set(filedata.md5, sizeof(filedata.md5));
-		const std::string file = fileSystem->getPoolFilename(fileMd5.toString());
-		if (!fileSystem->fileExists(file)) { // add non-existing files to download list
-			count++;
+		if (downloaded_md5.find(fileMd5.toString()) == downloaded_md5.end()) {
+			need_to_download = true;
 			filedata.download = true;
 		} else {
 			filedata.download = false;
 		}
-		if (i % 500 == 0) {
-			LOG_DEBUG("%d/%d checked", i, (int)files.size());
-		}
 	}
-	LOG_DEBUG("%d/%d need to download %d files", i, (int)files.size(),
-		  count);
-	if (count > 0) {
-		const std::string root = fileSystem->getSpringDir() + PATH_DELIMITER + "pool" + PATH_DELIMITER;
-		if (!createPoolDirs(root)) {
-			LOG_ERROR("Creating pool directories failed");
-			return false;
-		}
-
-		bool res;
-		const char* use_streamer_env = std::getenv("PRD_RAPID_USE_STREAMER");
-		if (use_streamer_env != nullptr && std::string(use_streamer_env) == "false") {
-			res = downloadHTTP();
-		} else {
-			res = downloadStream();
-		}
-		if (!res) {
-			LOG_ERROR("Couldn't download files for %s", md5.c_str());
-			fileSystem->removeFile(sdpPath);
-			return false;
-		}
-		LOG_DEBUG("Sucessfully downloaded %d files: %s %s", count,
-			  shortname.c_str(), name.c_str());
-	}
-	downloaded = true;
-	dl->state = IDownload::STATE_FINISHED;
-	return true;
+	return need_to_download;
 }
 
 static bool OpenNextFile(CSdp& sdp)
@@ -380,28 +409,30 @@ std::string CSdp::getPoolFileUrl(const std::string& md5s) const
 	return baseUrl + "/pool/" + md5s.substr(0, 2) + "/" + md5s.substr(2) + ".gz";
 }
 
-bool CSdp::downloadHTTP()
+bool CSdp::downloadHTTP(std::vector<std::pair<CSdp*, IDownload*>> const& packages)
 {
 	std::unordered_set<std::string> md5_in_queue;
 	std::list<IDownload*> dls;
-	for (FileData& fd: files) {
-		if (!fd.download) continue;
-		auto fileMd5 = std::make_unique<HashMD5>();
-		fileMd5->Set(fd.md5, sizeof(fd.md5));
-		// Multiple files in sdp can map to a single file in the pool,
-		// we need to skip duplicates.
-		if (md5_in_queue.find(fileMd5->toString()) != md5_in_queue.end()) {
-			continue;
+	for (auto [pkg, _]: packages) {
+		for (FileData& fd: pkg->files) {
+			if (!fd.download) continue;
+			auto fileMd5 = std::make_unique<HashMD5>();
+			fileMd5->Set(fd.md5, sizeof(fd.md5));
+			// Multiple files in sdp can map to a single file in the pool,
+			// we need to skip duplicates.
+			if (md5_in_queue.find(fileMd5->toString()) != md5_in_queue.end()) {
+				continue;
+			}
+			md5_in_queue.insert(fileMd5->toString());
+			std::string url = pkg->getPoolFileUrl(fileMd5->toString());
+			std::string filename = fileSystem->getPoolFilename(fileMd5->toString());
+			IDownload* dl = new IDownload(filename);
+			dl->addMirror(url);
+			dl->approx_size = fd.size;
+			dl->hash = std::move(fileMd5);
+			dl->out_hash = std::make_unique<HashGzip>(std::make_unique<HashMD5>());
+			dls.push_back(dl);
 		}
-		md5_in_queue.insert(fileMd5->toString());
-		std::string url = getPoolFileUrl(fileMd5->toString());
-		std::string filename = fileSystem->getPoolFilename(fileMd5->toString());
-		IDownload* dl = new IDownload(filename);
-		dl->addMirror(url);
-		dl->approx_size = fd.size;
-		dl->hash = std::move(fileMd5);
-		dl->out_hash = std::make_unique<HashGzip>(std::make_unique<HashMD5>());
-		dls.push_back(dl);
 	}
 	bool ok = httpDownload->download(dls, 100);
 	IDownloader::freeResult(dls);
