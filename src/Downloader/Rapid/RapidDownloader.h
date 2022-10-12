@@ -32,7 +32,7 @@ public:
 	/**
           start a download
   */
-	bool download(IDownload* download, int max_parallel = 10) override;
+	bool download(std::list<IDownload*>& downloads, int max_parallel = 10) override;
 
 	bool setOption(const std::string& key, const std::string& value) override;
 
@@ -54,7 +54,7 @@ private:
 	/**
           download by name, for example "Complete Annihilation revision 1234"
   */
-	bool download_name(IDownload* download);
+	bool download_name(std::list<IDownload*>& downloads);
 	/**
           update all repos from the web
   */

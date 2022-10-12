@@ -7,6 +7,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <unordered_set>
 
 #include "FileSystem/FileData.h"
 
@@ -23,16 +24,8 @@ public:
 	CSdp(CSdp&& sdp);
 
 	~CSdp();
-	/**
-          download a game, we already know the host where to download from + the
-     md5 of the sdp file
-          we have to download the sdp + parse it + download associated files
-  */
-	bool download(IDownload* dl);
-	/**
-          download the sdp file if it doesn't exist yet
-  */
-	bool downloadSelf(IDownload* dl);
+
+	static bool Download(std::vector<std::pair<CSdp*, IDownload*>> const& packages);
 	/**
           returns md5 of a repo
   */
@@ -74,6 +67,17 @@ public:
 	unsigned int cursize = 0;
 
 private:
+	/* If Sdp file is downloaded and succesfully parsed returns nullptr, else
+	 * returns IDownload to download that file.
+	 */
+	std::unique_ptr<IDownload> parseOrGetDownload();
+
+	/* Marks entries from `files` list to download or not depending on whatever
+	 * there is entry is present in downloaded_md5 set.
+	 * Returns true if there are any files to download.
+	 */
+	bool filterDownloaded(std::unordered_set<std::string> const& downloaded_md5);
+
 	void parse();
 	/**
           download files streamed
@@ -104,7 +108,7 @@ private:
   */
 	bool downloadStream();
 	std::string getPoolFileUrl(const std::string& md5str) const;
-	bool downloadHTTP();
+	static bool downloadHTTP(std::vector<std::pair<CSdp*, IDownload*>> const& packages);
 
 	std::string name;
 	std::string md5;
@@ -112,7 +116,6 @@ private:
 	std::string baseUrl;
 	std::string sdpPath;
 	std::vector<std::string> depends;
-	bool downloaded = false;
 };
 
 #endif
