@@ -284,16 +284,12 @@ std::string CFileSystem::getPoolFilename(const std::string& md5str) const
 	 + ".gz";
 }
 
-bool CFileSystem::validatePool(const std::string& path, bool deletebroken)
-{
-	if (!directoryExists(path)) {
-		LOG_ERROR("Pool directory doesn't exist: %s", path.c_str());
-		return 0;
-	}
-
-	std::vector<std::pair<std::filesystem::path, HashMD5>> files_to_validate;
+std::optional<std::vector<std::pair<std::string, HashMD5>>> CFileSystem::getPoolFiles()
+try {
+	const auto path = std::filesystem::u8path(getSpringDir() + PATH_DELIMITER + "pool");
+	std::vector<std::pair<std::string, HashMD5>> files;
 	for (const std::filesystem::directory_entry& dir_entry:
-	     std::filesystem::recursive_directory_iterator(std::filesystem::u8path(path))) {
+	     std::filesystem::recursive_directory_iterator(path)) {
 		auto const& p = dir_entry.path();
 		if (!dir_entry.is_regular_file() || p.extension() == ".tmp") {
 			continue;
@@ -303,9 +299,21 @@ bool CFileSystem::validatePool(const std::string& path, bool deletebroken)
 			LOG_WARN("Invalid file name, ignoring: %s", p.u8string().c_str());
 			continue;
 		}
-		files_to_validate.emplace_back(p, md5);
+		files.emplace_back(p.u8string(), md5);
 	}
+	return files;
+} catch (std::filesystem::filesystem_error const& ex) {
+	LOG_ERROR("Failed to read pool files: %s", ex.what());
+	return std::nullopt;
+}
 
+bool CFileSystem::validatePool(bool deletebroken)
+{
+	const auto res = getPoolFiles();
+	if (!res) {
+		return false;
+	}
+	auto const& files_to_validate = *res;
 	bool ok = true;
 	int progress = 0;
 	LOG_PROGRESS(progress, files_to_validate.size());
@@ -314,12 +322,11 @@ bool CFileSystem::validatePool(const std::string& path, bool deletebroken)
 		for (unsigned i = 0; i < 16; i++) {
 			filedata.md5[i] = md5.get(i);
 		}
-		const auto path_str = path.u8string();
-		if (!fileIsValid(&filedata, path_str)) {
+		if (!fileIsValid(&filedata, path)) {
 			ok = false;
-			LOG_ERROR("Invalid File in pool: %s", path_str.c_str());
+			LOG_ERROR("Invalid File in pool: %s", path.c_str());
 			if (deletebroken) {
-				removeFile(path_str);
+				removeFile(path);
 			}
 		}
 		++progress;

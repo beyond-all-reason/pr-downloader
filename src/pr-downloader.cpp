@@ -312,8 +312,7 @@ int DownloadStart()
 
 bool DownloadRapidValidate(bool deletebroken)
 {
-	const std::string path = fileSystem->getSpringDir() + PATH_DELIMITER + "pool";
-	return fileSystem->validatePool(path, deletebroken);
+	return fileSystem->validatePool(deletebroken);
 }
 
 bool DownloadDumpSDP(const char* path)
