@@ -3,10 +3,13 @@
 #ifndef FILE_SYSTEM_H
 #define FILE_SYSTEM_H
 
-#include "FileData.h"
-
 #include <list>
 #include <string>
+#include <vector>
+#include <optional>
+
+#include "FileData.h"
+#include "HashMD5.h"
 
 class SRepository;
 class CRepo;
@@ -50,11 +53,13 @@ public:
   */
 	static bool createSubdirs(const std::string& path);
 
+	std::optional<std::vector<std::pair<std::string, HashMD5>>> getPoolFiles();
+
 	/**
           Validate all files in /pool/ (check md5)
           @return count of valid files found
   */
-	bool validatePool(const std::string& path, bool deletebroken);
+	bool validatePool(bool deletebroken);
 
 	/**
           check if file is older then secs, returns true if file is older or
