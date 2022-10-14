@@ -103,7 +103,7 @@ class ArchiveFile(RapidFile):
 class Archive(RapidFile):
     """Represents Sdp index file stored in the repository."""
     shortname: str
-    depends: str
+    depends: list[str]
     name: str
     # filename -> ArchiveFile
     files: dict[str, ArchiveFile] = field(default_factory=dict)
@@ -157,7 +157,8 @@ class Repo(RapidFile):
         out = []
         for s, a in sorted(list(self.archives.items())):
             assert s == a.shortname
-            out.append(f'{a.shortname},{a.get_md5()},{a.depends},{a.name}\n')
+            out.append(
+                f'{a.shortname},{a.get_md5()},{"|".join(a.depends)},{a.name}\n')
         return ''.join(out).encode()
 
     def rapid_filename(self) -> str:
@@ -169,7 +170,9 @@ class Repo(RapidFile):
     def add_archive(self,
                     tag: str,
                     name: Optional[str] = None,
-                    depends: str = '') -> Archive:
+                    depends: list[str] = []) -> Archive:
+        if depends == []:
+            depends = []  # we must have new fresh object
         assert len(tag) > 0
         shortname = f'{self.shortname}:{tag}'
         assert shortname not in self.archives
@@ -368,7 +371,7 @@ class TestDownloading(unittest.TestCase):
     server: TestingHTTPServer
 
     def call_rapid_download(self,
-                            shortname: str,
+                            shortnames: str | list[str],
                             use_streamer: bool = False) -> int:
         with tempfile.NamedTemporaryFile(
                 prefix='pr-run-', delete=not self.keep_temp_files) as out:
@@ -384,10 +387,17 @@ class TestDownloading(unittest.TestCase):
                 env['LLVM_PROFILE_FILE'] = os.path.join(
                     self.coverage_profiles_path,
                     f'{os.path.basename(out.name)}.profraw')
+
+            if isinstance(shortnames, str):
+                shortnames = [shortnames]
+            dl_args = []
+            for sn in shortnames:
+                dl_args.extend(['--download-game', sn])
+
             res = subprocess.run([
                 self.pr_downloader_path, '--filesystem-writepath',
-                self.dest_root, '--rapid-download', shortname
-            ],
+                self.dest_root
+            ] + dl_args,
                                  stderr=subprocess.STDOUT,
                                  stdout=out,
                                  timeout=10,
@@ -441,6 +451,8 @@ class TestDownloading(unittest.TestCase):
         archive.add_file('b.txt', b'aacc')
         archive = repo.add_archive('pkg:3')
         archive.add_file('a.txt', b'aeee')
+        archive = repo.add_archive('pkg:4', 'Package 4')
+        archive.add_file('a.txt', b'aeeessss')
         self.rapid.save(self.serving_root)
 
         with self.server.serve():
@@ -448,11 +460,15 @@ class TestDownloading(unittest.TestCase):
                 self.call_rapid_download('testrepo:pkg:1',
                                          use_streamer=use_streamer), 0)
             self.assertEqual(
-                self.call_rapid_download('testrepo2:pkg:2',
+                self.call_rapid_download('rapid://testrepo2:pkg:2',
+                                         use_streamer=use_streamer), 0)
+            self.assertEqual(
+                self.call_rapid_download('Package 4',
                                          use_streamer=use_streamer), 0)
 
         self.assertTrue(self.verify_downloaded_rapid('testrepo:pkg:1'))
         self.assertTrue(self.verify_downloaded_rapid('testrepo2:pkg:2'))
+        self.assertTrue(self.verify_downloaded_rapid('testrepo2:pkg:4'))
         self.assertFalse(self.verify_downloaded_rapid('testrepo2:pkg:3'))
 
     def test_simple_download_ok(self) -> None:
@@ -483,6 +499,96 @@ class TestDownloading(unittest.TestCase):
                     0,
                     msg=f'downloading {path} didn\'t cause failure as expected')
             self.server.clear_resolvers()
+
+    def test_downloading_dependencies(self) -> None:
+        repo = self.rapid.add_repo('base')
+        archive = repo.add_archive('old_stable', 'Base 1.0')
+        archive.add_file('a.txt', b'_')
+        archive = repo.add_archive('stable', 'Base 2.0')
+        archive.add_file('a.txt', b'a')
+        repo = self.rapid.add_repo('repo1')
+        archive = repo.add_archive('test', 'Repo1 test',
+                                   ['rapid://base:stable'])
+        archive.add_file('b.txt', b'a')
+        repo = self.rapid.add_repo('repo2')
+        archive = repo.add_archive('test', 'Repo2 test', ['Base 2.0'])
+        archive.add_file('c.txt', b'a')
+        repo = self.rapid.add_repo('top_repo')
+        archive = repo.add_archive('pkg',
+                                   'pkg',
+                                   depends=['Repo1 test', 'rapid://repo2:test'])
+        archive.add_file('d.txt', b'aeee')
+        self.rapid.save(self.serving_root)
+
+        with self.server.serve():
+            self.assertEqual(self.call_rapid_download('rapid://top_repo:pkg'),
+                             0)
+
+        self.assertTrue(self.verify_downloaded_rapid('top_repo:pkg'))
+        self.assertTrue(self.verify_downloaded_rapid('repo1:test'))
+        self.assertTrue(self.verify_downloaded_rapid('repo2:test'))
+        self.assertTrue(self.verify_downloaded_rapid('base:stable'))
+        self.assertFalse(self.verify_downloaded_rapid('base:old_stable'))
+
+    def test_handle_multiple_rapid_tags_resolved(self) -> None:
+        repo = self.rapid.add_repo('base')
+        archive1 = repo.add_archive('stable', 'Stable')
+        archive1.add_file('a.txt', b'a')
+        archive2 = repo.add_archive('git:198239',
+                                    'Stable')  # exactly the same file
+        archive2.add_file('a.txt', b'a')
+        self.rapid.save(self.serving_root)
+
+        self.assertEqual(archive1.rapid_filename(), archive2.rapid_filename())
+
+        with self.server.serve():
+            self.assertEqual(self.call_rapid_download('Stable'), 0)
+
+        self.assertTrue(self.verify_downloaded_rapid('base:stable'))
+
+    def test_multiple_packages_single_invocation(self) -> None:
+        repo = self.rapid.add_repo('base')
+        num_archives = 10
+        for i in range(num_archives):
+            archive = repo.add_archive(f'pkg:{i}')
+            archive.add_file('f.txt', str(i).encode())
+        self.rapid.save(self.serving_root)
+        packages = [f'base:pkg:{i}' for i in range(num_archives)]
+
+        with self.server.serve():
+            self.assertEqual(self.call_rapid_download(packages), 0)
+
+        for pkg in packages:
+            self.assertTrue(self.verify_downloaded_rapid(pkg))
+
+    def test_redownload_is_ok(self) -> None:
+        repo = self.rapid.add_repo('repo')
+        archive = repo.add_archive('pkg')
+        archive.add_file('a.txt', b'a')
+        self.rapid.save(self.serving_root)
+
+        with self.server.serve():
+            self.assertEqual(self.call_rapid_download('repo:pkg'), 0)
+            self.assertTrue(self.verify_downloaded_rapid('repo:pkg'))
+            self.assertEqual(self.call_rapid_download('repo:pkg'), 0)
+            self.assertTrue(self.verify_downloaded_rapid('repo:pkg'))
+
+    def test_io_error_fails_download(self) -> None:
+        repo = self.rapid.add_repo('repo')
+        archive = repo.add_archive('pkg')
+        archive.add_file('a.txt', b'a')
+        af = archive.add_file('b.txt', b'b')
+        self.rapid.save(self.serving_root)
+
+        # We simulate permission danied on writing to temporary file in pool
+        path = os.path.join(self.dest_root, af.rapid_filename()) + '.tmp'
+        os.makedirs(os.path.dirname(path))
+        with open(path, 'wb') as f:
+            f.write(b'asd')
+        os.chmod(path, 0)
+
+        with self.server.serve():
+            self.assertNotEqual(self.call_rapid_download('repo:pkg'), 0)
 
     def _base_detect_file_corruption(self, use_streamer: bool) -> None:
         repo = self.rapid.add_repo('testrepo')
