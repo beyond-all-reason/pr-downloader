@@ -145,3 +145,45 @@ void ensureUtf8Argv(int *argc, char*** argv)
 }
 
 #endif
+
+std::pair<std::unordered_map<std::string, std::vector<std::string>>,
+          std::vector<std::string>> parseArguments(
+    int argc, char** argv, std::unordered_map<std::string, bool> const& valid_options)
+{
+	std::vector<std::string> positional;
+	std::unordered_map<std::string, std::vector<std::string>> args;
+	for (int i = 1; i < argc; ++i) {
+		const std::string arg = argv[i];
+		if (arg.substr(0, 2) != "--") {
+			positional.emplace_back(std::move(arg));
+			continue;;
+		}
+		const auto eqpos = arg.find("=");
+		const std::string arg_name = arg.substr(2, eqpos-2);
+		const auto vo = valid_options.find(arg_name);
+		if (vo == valid_options.end()) {
+			throw ArgumentParseEx("unknown option --" + arg_name);
+		}
+		if (!vo->second) {
+			if (eqpos != std::string::npos) {
+				throw ArgumentParseEx(
+					"option --" + arg_name + " is not taking value, got value");
+			}
+			args[arg_name] = {};
+			continue;
+		}
+		std::string arg_val;
+		if (eqpos != std::string::npos) {
+			arg_val = arg.substr(eqpos+1);
+		} else {
+			++i;
+			if (i >= argc) {
+				throw ArgumentParseEx(
+					"option --" + arg_name + " is taking value, didn't got any");
+			}
+			arg_val = argv[i];
+		}
+		args[arg_name].emplace_back(std::move(arg_val));
+	}
+	return std::make_pair(std::move(args), std::move(positional));
+}

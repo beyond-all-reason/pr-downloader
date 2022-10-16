@@ -1,12 +1,13 @@
 /* This file is part of pr-downloader (GPL v2 or later), see the LICENSE file */
 
-#ifndef UTIL_H
-#define UTIL_H
+#pragma once
 
 #define HTTP_SEARCH_URL "https://springfiles.springrts.com/json.php"
 #define MAX_PARALLEL_DOWNLOADS 10
 
+#include <stdexcept>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 class FileData;
@@ -57,4 +58,18 @@ std::wstring s2ws(const std::string& s);
 */
 void ensureUtf8Argv(int *argc, char*** argv);
 
-#endif
+/*
+         Takes argc, args and a arg_name -> has_value map with valid options
+         and returns a parsed arguments separated into options and positional
+         arguments.
+
+         Throws FlagParseEx in case of issues.
+*/
+std::pair<std::unordered_map<std::string, std::vector<std::string>>,
+          std::vector<std::string>> parseArguments(
+    int argc, char** argv, std::unordered_map<std::string, bool> const& valid_options);
+
+class ArgumentParseEx : public std::runtime_error {
+  public:
+        template<class T> ArgumentParseEx(T&& arg) : std::runtime_error(std::forward<T>(arg)) {};
+};

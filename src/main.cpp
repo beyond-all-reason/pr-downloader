@@ -1,83 +1,64 @@
 /* This file is part of pr-downloader (GPL v2 or later), see the LICENSE file */
+#include <array>
+#include <iostream>
+#include <string>
+#include <tuple>
+#include <unordered_map>
+#include <utility>
 
-#include "Util.h"
-#include "Version.h"
+#include "Downloader/DownloadEnum.h"
 #include "Logger.h"
 #include "pr-downloader.h"
-
+#include "Util.h"
+#include "Version.h"
 #include <lsl/lslutils/platform.h>
-#include <stdbool.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <getopt.h>
-
-enum {
-	RAPID_DOWNLOAD = 0,
-	RAPID_VALIDATE,
-	RAPID_VALIDATE_DELETE,
-	HTTP_DOWNLOAD,
-	FILESYSTEM_WRITEPATH,
-	FILESYSTEM_DUMPSDP,
-	FILESYSTEM_VALIDATESDP,
-	DOWNLOAD_MAP,
-	DOWNLOAD_GAME,
-	DOWNLOAD_ENGINE,
-	DISABLE_LOGGING,
-	DISABLE_FETCH_DEPENDS,
-	HELP,
-	SHOW_VERSION
-};
-
-static struct option long_options[] = {
-    {"rapid-download", 1, 0, RAPID_DOWNLOAD},
-    {"rapid-validate", 0, 0, RAPID_VALIDATE},
-    {"delete", 0, 0, RAPID_VALIDATE_DELETE},
-    {"dump-sdp", 1, 0, FILESYSTEM_DUMPSDP},
-    {"validate-sdp", 1, 0, FILESYSTEM_VALIDATESDP},
-    {"http-download", 1, 0, HTTP_DOWNLOAD},
-    {"download-map", 1, 0, DOWNLOAD_MAP},
-    {"download-game", 1, 0, DOWNLOAD_GAME},
-    {"download-engine", 1, 0, DOWNLOAD_ENGINE},
-    {"filesystem-writepath", 1, 0, FILESYSTEM_WRITEPATH},
-    {"disable-logging", 0, 0, DISABLE_LOGGING},
-    {"disable-fetch-depends", 0, 0, DISABLE_FETCH_DEPENDS},
-    {"help", 0, 0, HELP},
-    {"version", 0, 0, SHOW_VERSION},
-    {0, 0, 0, 0}};
 
 void show_version()
 {
 	LOG("pr-downloader %s (%s)\n", getVersion(), LSL::Util::GetCurrentPlatformString());
 }
 
+const static std::array<std::tuple<std::string, bool, std::string>, 12> opts_array = {{
+	{"help", false, "Print this help message"},
+	{"version", false, "Show version of pr-downloader and quit"},
+	{"filesystem-writepath", true, "Set the directory with data, defaults to current dir"},
+	{"download-game", true, "Download games by name or rapid tag, eg. 'GG 1.2', 'gg:test', 'rapid://gg:test'"},
+	{"download-map", true, "Download maps by name"},
+	{"download-engine", true, "Download engines by version"},
+	{"rapid-validate", false, "Validates correctness of files in rapid pool"},
+	{"delete", false, "Delete invalid files when executing --rapid-validate"},
+	{"validate-sdp", true, "Validate correctness of files in Sdp archive, takes full path to the Sdp file"},
+	{"dump-sdp", true, "Dump contents of Sdp file, takes full path to the Sdp file"},
+	{"disable-logging", false, "Disables logging"},
+	{"disable-fetch-depends", false, "Disables downloading of dependend archives"},
+}};
+
 void show_help(const char* cmd)
 {
-	int i = 0;
-	LOG("Usage: %s \n", cmd);
-	bool append = false;
-	while (long_options[i].name != 0) {
-		if (append) {
-			LOG("\n");
+	std::cout << "Usage: " << cmd << "\nOptions:\n";
+	for (auto const& [arg, has_val, help]: opts_array) {
+		std::cout << " --" << arg;
+		if (has_val) {
+			std::cout << " <value>";
 		}
-		append = true;
-		LOG("  --%s", long_options[i].name);
-		if (long_options[i].has_arg != 0)
-			LOG(" <name>");
-		i++;
+		std::cout << "\n      " << help << "\n";
 	}
-	LOG("\n\n");
-	LOG("Environment variables:\n");
-	LOG("  PRD_RAPID_USE_STREAMER=[true]|false\n");
-	LOG("\tWhatever to use streamer.cgi for downloading.\n");
-	LOG("  PRD_RAPID_REPO_MASTER=[https://repos.springrts.com/repos.gz]\n");
-	LOG("\tURL of the rapid repo master\n");
-	LOG("  PRD_MAX_HTTP_REQS_PER_SEC=[0]\n");
-	LOG("\tLimit on number of requests per second for HTTP downloading, 0 = unlimited\n");
-	LOG("  PRD_HTTP_SEARCH_URL=[https://springfiles.springrts.com/json.php]\n");
-	LOG("\tURL of springfiles used to download maps etc.\n");
-	LOG("  PRD_DISABLE_CERT_CHECK=[false]|true\n");
-	LOG("\tAllows to disable TLS certificate validation, useful for testing.\n");
-	exit(1);
+	std::cout << R"env(
+All --download-* flags can be specified multiple times which will download multiple
+assets with a single invocation.
+
+Environment variables:
+  PRD_RAPID_USE_STREAMER=[true]|false
+      Whatever to use streamer.cgi for downloading.
+  PRD_RAPID_REPO_MASTER=[https://repos.springrts.com/repos.gz]
+      URL of the rapid repo master.
+  PRD_MAX_HTTP_REQS_PER_SEC=[0]
+      Limit on number of requests per second for HTTP downloading, 0 = unlimited
+  PRD_HTTP_SEARCH_URL=[https://springfiles.springrts.com/json.php]
+      URL of springfiles used to download maps etc.
+  PRD_DISABLE_CERT_CHECK=[false]|true
+      Allows to disable TLS certificate validation, useful for testing.
+)env";
 }
 
 void show_results(int count)
@@ -90,104 +71,80 @@ void show_results(int count)
 }
 
 int main(int argc, char** argv)
-{
+try {
 	ensureUtf8Argv(&argc, &argv);
 	show_version();
-	if (argc < 2)
+	if (argc < 2) {
 		show_help(argv[0]);
-
-	bool removeinvalid = false;
-	bool fsset = false;
-
-	while (true) {
-		const int c = getopt_long(argc, argv, "", long_options, nullptr);
-		if (c == -1)
-			break;
-		switch(c) {
-			case RAPID_VALIDATE_DELETE: {
-				removeinvalid = true;
-				break;
-			}
-			case FILESYSTEM_WRITEPATH: {
-				fsset = true;
-				DownloadSetConfig(CONFIG_FILESYSTEM_WRITEPATH, optarg);
-				break;
-			}
-			case DISABLE_LOGGING:
-				DownloadDisableLogging(true);
-				break;
-			case DISABLE_FETCH_DEPENDS: {
-				bool fetch_depends = false;
-				DownloadSetConfig(CONFIG_FETCH_DEPENDS, &fetch_depends);
-				break;
-			}
-			default:
-				break;
-		}
+		return 1;
 	}
-	if (!fsset) {
+
+	std::unordered_map<std::string, bool> opts;
+	for (const auto& [flag, has_val, help]: opts_array) {
+		opts.emplace(flag, has_val);
+	}
+	const auto [args, positional] = parseArguments(argc, argv, opts);
+
+	if (args.count("help")) {
+		show_help(argv[0]);
+		return 0;
+	} else if (args.count("version")) {
+		return 0;
+	}
+	if (args.count("filesystem-writepath")) {
+		DownloadSetConfig(CONFIG_FILESYSTEM_WRITEPATH, args.at("filesystem-writepath").back().c_str());
+	} else {
 		DownloadSetConfig(CONFIG_FILESYSTEM_WRITEPATH, "");
 	}
+	if (args.count("disable-logging")) {
+		DownloadDisableLogging(true);
+	}
+	if (args.count("disable-fetch-depends")) {
+		bool fetch_depends = false;
+		DownloadSetConfig(CONFIG_FETCH_DEPENDS, &fetch_depends);
+	}
 
-	optind = 1; // reset argv scanning
+	if (auto it = args.find("dump-sdp"); it != args.end()) {
+		if (!DownloadDumpSDP(it->second.back().c_str())) {
+			LOG_ERROR("Error dumping sdp");
+			return 1;
+		}
+		return 0;
+	}
+
+	if (auto it = args.find("validate-sdp"); it != args.end()) {
+		if (!ValidateSDP(it->second.back().c_str())) {
+			LOG_ERROR("Error validating SDP");
+			return 1;
+		}
+		return 0;
+	}
+
+	if (args.count("rapid-validate")) {
+		const bool removeinvalid = args.count("delete");
+		if (!DownloadRapidValidate(removeinvalid)) {
+			LOG_ERROR("Validation of the rapid pool failed");
+			return 1;
+		}
+		return 0;
+	}
+
 	std::vector<DownloadSearchItem> items;
-	while (true) {
-		const int c = getopt_long(argc, argv, "", long_options, nullptr);
-		if (c == -1)
-			break;
-		switch (c) {
-			case RAPID_DOWNLOAD: {
-				items.emplace_back(DownloadEnum::CAT_GAME, optarg);
-				break;
-			}
-			case RAPID_VALIDATE: {
-				if (!DownloadRapidValidate(removeinvalid)) {
-					LOG_ERROR("Validation of the rapid pool failed");
-					return 1;
-				}
-				return 0;
-			}
-			case FILESYSTEM_DUMPSDP: {
-				if (!DownloadDumpSDP(optarg)) {
-					LOG_ERROR("Error dumping sdp");
-					return 1;
-				}
-				return 0;
-			}
-			case FILESYSTEM_VALIDATESDP: {
-				if (!ValidateSDP(optarg)) {
-					LOG_ERROR("Error validating SDP");
-					return 1;
-				}
-				return 0;
-			}
-			case DOWNLOAD_MAP: {
-				items.emplace_back(DownloadEnum::CAT_MAP, optarg);
-				break;
-			}
-			case DOWNLOAD_GAME: {
-				items.emplace_back(DownloadEnum::CAT_GAME, optarg);
-				break;
-			}
-			case SHOW_VERSION:
-				show_version();
-				return 0;
-			case DOWNLOAD_ENGINE: {
-				items.emplace_back(DownloadEnum::CAT_ENGINE, optarg);
-				break;
-			}
-			case HELP: {
-				show_help(argv[0]);
-				return 0;
+	for (auto [arg, cat]: std::array<std::pair<std::string, DownloadEnum::Category>, 3>{{
+		{"download-map", DownloadEnum::CAT_MAP},
+		{"download-game", DownloadEnum::CAT_GAME},
+		{"download-engine", DownloadEnum::CAT_ENGINE}
+	}}) {
+		if (auto it = args.find(arg); it != args.end()) {
+			for (auto val: it->second) {
+				items.emplace_back(cat, val);
 			}
 		}
 	}
-	if (optind < argc) {
-		while (optind < argc) {
-			items.emplace_back(DownloadEnum::CAT_NONE, argv[optind]);
-			optind++;
-		}
+	for (auto val: positional) {
+		items.emplace_back(DownloadEnum::CAT_NONE, val);
 	}
+
 	DownloadInit();
 	int count = DownloadSearch(items);
 	if (count < 0) {
@@ -217,4 +174,6 @@ int main(int argc, char** argv)
 	}
 	DownloadShutdown();
 	return dlres;
+} catch (const ArgumentParseEx& ex) {
+	LOG_ERROR("Failed to parse arguments: %s", ex.what());
 }
