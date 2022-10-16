@@ -1,5 +1,6 @@
 #include <cstddef>
 #include <cstdio>
+#include <unordered_map>
 #define BOOST_TEST_MODULE Float3
 #include <boost/test/unit_test.hpp>
 #include <algorithm>
@@ -12,6 +13,7 @@
 #include "FileSystem/HashGzip.h"
 #include "FileSystem/HashMD5.h"
 #include "Downloader/Http/IOThreadPool.h"
+#include "Util.h"
 
 BOOST_AUTO_TEST_CASE(EscapeFilenameTest)
 {
@@ -102,5 +104,56 @@ BOOST_AUTO_TEST_CASE(IOThreadPoolTest)
 	BOOST_CHECK(total_ret_counter == expexted_total_ret_countet);
 	for (int i = 0; i < handlersCount; ++i) {;
 		BOOST_CHECK(counters[i] == accCount);
+	}
+}
+
+BOOST_AUTO_TEST_CASE(ParseArgumentsTest) {
+	using ArgsT = std::unordered_map<std::string, std::vector<std::string>>;
+	using PosT = std::vector<std::string>;
+	const std::unordered_map<std::string, bool> opts = {
+		{"opt1", true},
+		{"opt2", true},
+		{"flag1", false},
+		{"flag2", false},
+	};
+
+	// Correct usage
+	{
+		constexpr int argc = 13;
+		const char *argv[argc] = {
+			"prd", "--opt1", "value", "pos1", "--opt2=value=asd=asd",
+			"--flag1", "pos2", "--flag2", "--opt1", "--value2",
+			"--opt2", "value2", "--flag1"};
+		const auto [args, positional] = parseArguments(argc, const_cast<char**>(argv), opts);
+		const ArgsT expected_args = {
+			{"opt1", {"value", "--value2"}},
+			{"opt2", {"value=asd=asd", "value2"}},
+			{"flag1", {}},
+			{"flag2", {}},
+		};
+		const PosT expected_positional = {"pos1", "pos2"};
+		BOOST_CHECK(args == expected_args);
+		BOOST_CHECK(positional == expected_positional);
+	}
+
+	// Invalid option
+	{
+		constexpr int argc = 3;
+		const char *argv[argc] = {"prd", "--opt_unknown", "asd"};
+		BOOST_CHECK_THROW(parseArguments(argc, const_cast<char**>(argv), opts), ArgumentParseEx);
+	}
+
+	// Taking value when it shouldn't
+	{
+		constexpr int argc = 2;
+		const char *argv[argc] = {"prd", "--flag1=asdasd"};
+		BOOST_CHECK_THROW(parseArguments(argc, const_cast<char**>(argv), opts), ArgumentParseEx);
+	}
+
+	// No value for option
+	{
+		constexpr int argc = 2;
+		const char *argv[argc] = {"prd", "--opt1"};
+		BOOST_CHECK_THROW(parseArguments(argc, const_cast<char**>(argv), opts), ArgumentParseEx);
 	}
 }
