@@ -86,7 +86,7 @@ BOOST_AUTO_TEST_CASE(IOThreadPoolTest)
 	}
 	for (size_t i = 0; i < queue.size(); ++i) {
 		int val = queue[i];
-		handlers[val].submit([&counters, &total_ret_counter, val] () -> IOThreadPool::OptRetF {
+		handlers[val].submit([&counters, &total_ret_counter, val, modRetEval] () -> IOThreadPool::OptRetF {
 			counters[val] += 1;
 			if (val % modRetEval == 0) {
 				return [&total_ret_counter] () {
