@@ -143,6 +143,8 @@ public:
 
 	static long getFileTimestamp(const std::string& path);
 
+	static int dupFileFD(FILE* f);
+
 private:
 	bool portableDownload = false;
 	std::list<FileData> mods;

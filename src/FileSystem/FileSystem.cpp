@@ -22,6 +22,7 @@
 #include <windows.h>
 #include <shlobj.h>
 #include <math.h>
+#include <io.h>
 #ifndef SHGFP_TYPE_CURRENT
 #define SHGFP_TYPE_CURRENT 0
 #endif
@@ -53,7 +54,15 @@ bool CFileSystem::fileIsValid(const FileData* mod,
 {
 	unsigned char data[IO_BUF_SIZE];
 	FILE* f = propen(filename, "rb");
-	gzFile inFile = gzdopen(fileno(f), "rb");
+	if (f == nullptr) {
+		return false;
+	}
+	int fd = fileSystem->dupFileFD(f);
+	if (fd < 0) {
+		fclose(f);
+		return false;
+	}
+	gzFile inFile = gzdopen(fd, "rb");
 	if (inFile == nullptr) { // file can't be opened
 		fclose(f);
 		LOG_ERROR("Could not open file %s", filename.c_str());
@@ -100,7 +109,15 @@ bool CFileSystem::parseSdp(const std::string& filename, std::list<FileData>& fil
 	unsigned char length;
 
 	FILE* f = propen(filename, "rb");
-	gzFile in = gzdopen(fileno(f), "rb");
+	if (f == nullptr) {
+		return false;
+	}
+	int fd = fileSystem->dupFileFD(f);
+	if (fd < 0) {
+		fclose(f);
+		return false;
+	}
+	gzFile in = gzdopen(fd, "rb");
 	if (in == Z_NULL) {
 		LOG_ERROR("Could not open %s", filename.c_str());
 		fclose(f);
@@ -669,4 +686,17 @@ long CFileSystem::getFileTimestamp(const std::string& path)
 		return -1;
 	}
 	return sb.st_mtime;
+}
+
+int CFileSystem::dupFileFD(FILE* f)
+{
+#if _WIN32
+	int res = _dup(_fileno(f));
+#else
+	int res = dup(fileno(f));
+#endif
+	if (res < 0) {
+		LOG_ERROR("Couldn't duplicate file descriptor: %s", strerror(errno));
+	}
+	return res;
 }
