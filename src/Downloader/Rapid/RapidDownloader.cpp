@@ -209,7 +209,11 @@ bool CRapidDownloader::UpdateReposGZ()
 static bool ParseFD(FILE* f, const std::string& path, std::list<CRepo>& repos, CRapidDownloader* rapid)
 {
 	repos.clear();
-	gzFile fp = gzdopen(fileno(f), "rb");
+	int fd = fileSystem->dupFileFD(f);
+	if (fd < 0) {
+		return false;
+	}
+	gzFile fp = gzdopen(fd, "rb");
 	if (fp == Z_NULL) {
 		LOG_ERROR("Could not open %s", path.c_str());
 		return false;

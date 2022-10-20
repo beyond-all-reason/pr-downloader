@@ -51,7 +51,12 @@ bool CRepo::parse()
 		LOG_ERROR("Could not open %s", tmpFile.c_str());
 		return false;
 	}
-	gzFile fp = gzdopen(fileno(f), "rb");
+	int fd = fileSystem->dupFileFD(f);
+	if (fd < 0) {
+		fclose(f);
+		return false;
+	}
+	gzFile fp = gzdopen(fd, "rb");
 	if (fp == Z_NULL) {
 		fclose(f);
 		LOG_ERROR("Could not gzdopen %s", tmpFile.c_str());
