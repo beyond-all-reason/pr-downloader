@@ -383,6 +383,7 @@ class TestDownloading(unittest.TestCase):
                 'PRD_RAPID_USE_STREAMER':
                     'true' if use_streamer else 'false',
             }
+            env.update(os.environ)
             if self.coverage_profiles_path is not None:
                 env['LLVM_PROFILE_FILE'] = os.path.join(
                     self.coverage_profiles_path,
@@ -490,7 +491,8 @@ class TestDownloading(unittest.TestCase):
 
         for sub, rf in self.rapid.traverse():
             self.clear_dest_root()
-            path = os.path.join('/', sub, rf.rapid_filename())
+            # we do replace as hacky way to support windows paths.
+            path = os.path.join('/', sub, rf.rapid_filename()).replace('\\', '/')
             self.server.add_resolver(
                 fail_requests_resolver({path: HTTPStatus.NOT_FOUND}))
             with self.server.serve():
