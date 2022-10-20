@@ -43,13 +43,16 @@ void CRapidDownloader::addRemoteSdp(CSdp&& sdp)
 
 bool CRapidDownloader::list_compare(const CSdp& first, const CSdp& second)
 {
-	const std::string name1 = first.getShortName();
-	const std::string name2 = second.getShortName();
+	const std::string& name1 = first.getShortName();
+	const std::string& name2 = second.getShortName();
 	const unsigned len = std::min(name1.size(), name2.size());
 	for (unsigned i = 0; i < len; i++) {
-		if (tolower(name1[i]) < tolower(name2[i])) {
-			return true;
+		int c1 = tolower(name1[i]);
+		int c2 = tolower(name2[i]);
+		if (c1 == c2) {
+			continue;
 		}
+		return c1 < c2;
 	}
 	return false;
 }
