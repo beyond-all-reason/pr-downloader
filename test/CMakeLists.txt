@@ -1,6 +1,6 @@
 
 
-FIND_PACKAGE(Boost 1.35.0 COMPONENTS unit_test_framework OPTIONAL_COMPONENTS signals2)
+FIND_PACKAGE(Boost 1.35.0 COMPONENTS unit_test_framework)
 IF(NOT Boost_FOUND)
 	Message(STATUS "Note: Unit tests will not be built: Boost::test library was not found")
 Else()
@@ -16,7 +16,7 @@ Else()
 		${pr-downloader_SOURCE_DIR}/src/Logger.cpp
 	)
 
-	ADD_EXECUTABLE(prd_test WIN32 MACOSX_BUNDLE ${prd_testsrc} )
+	ADD_EXECUTABLE(prd_test ${prd_testsrc} )
 	add_test(NAME prdtest COMMAND prd_test)
 
 	TARGET_LINK_LIBRARIES(prd_test
@@ -61,7 +61,8 @@ endif ()
 ################################################################################
 ### swig
 
-ADD_EXECUTABLE(swig_test WIN32 MACOSX_BUNDLE ${CMAKE_CURRENT_SOURCE_DIR}/lsl/swig.cpp )
+ADD_EXECUTABLE(swig_test MACOSX_BUNDLE ${CMAKE_CURRENT_SOURCE_DIR}/lsl/swig.cpp )
+target_link_libraries(swig_test PRIVATE Boost::boost)
 add_test(NAME swigTest COMMAND swig_test)
 
 
