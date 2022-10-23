@@ -35,7 +35,6 @@ add_library(Downloader STATIC
 	Util.cpp
 	Version.cpp
 	lib/base64/base64.cpp
-	lsl/lslutils/platform.cpp
 	${archivessrc}
 	${jsonlibcppsrc}
 )
@@ -178,11 +177,6 @@ if(PRD_DO_INSTALL AND PRD_DEVELOP_FILES)
 	install(FILES
 		pr-downloader.h
 	        DESTINATION ${PRD_INCLUDE_DIR}/Downloader COMPONENT Devel )
-endif ()
-
-OPTION(PRD_ENABLE_LSL "compile lsl modules" OFF)
-if (PRD_ENABLE_LSL)
-	add_subdirectory(lsl)
 endif ()
 
 OPTION(RAPIDTOOLS "compile rapid tools" OFF)
