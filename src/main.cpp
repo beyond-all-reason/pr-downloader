@@ -11,11 +11,10 @@
 #include "pr-downloader.h"
 #include "Util.h"
 #include "Version.h"
-#include <lsl/lslutils/platform.h>
 
 void show_version()
 {
-	LOG("pr-downloader %s (%s)\n", getVersion(), LSL::Util::GetCurrentPlatformString());
+	LOG("pr-downloader %s (%s)\n", getVersion(), platformToString(PRD_CURRENT_PLATFORM));
 }
 
 const static std::array<std::tuple<std::string, bool, std::string>, 12> opts_array = {{

@@ -5,7 +5,7 @@
 #include "Logger.h"
 #include "lib/md5/md5.h"
 #include "lib/base64/base64.h"
-#include "lsl/lslutils/platform.h"
+#include "Version.h"
 
 #include <string>
 #include <unordered_set>
@@ -33,17 +33,10 @@ bool isEngineDownload(DownloadEnum::Category cat)
 
 DownloadEnum::Category getPlatformEngineCat()
 {
-	switch (LSL::Util::GetPlatform()){
-		case LSL::Util::Platform::kLinux32:   return DownloadEnum::CAT_ENGINE_LINUX;
-		case LSL::Util::Platform::kLinux64:   return DownloadEnum::CAT_ENGINE_LINUX64;
-		case LSL::Util::Platform::kWindows32: return DownloadEnum::CAT_ENGINE_WINDOWS;
-		case LSL::Util::Platform::kWindows64: return DownloadEnum::CAT_ENGINE_WINDOWS64;
-		case LSL::Util::Platform::kMacosx:    return DownloadEnum::CAT_ENGINE_MACOSX;
-		default:
-			assert(false);
+	switch (PRD_CURRENT_PLATFORM) {
+		case Platform::Linux_x64: return DownloadEnum::CAT_ENGINE_LINUX64;
+		case Platform::Windows_x64: return DownloadEnum::CAT_ENGINE_WINDOWS64;
 	}
-	assert(false);
-	return DownloadEnum::CAT_ENGINE_LINUX64;
 }
 
 bool download_engine(std::list<IDownload*>& dllist)
@@ -63,7 +56,7 @@ bool download_engine(std::list<IDownload*>& dllist)
 	for (const IDownload* dl : enginedls) {
 		if (!dl->isFinished())
 			continue;
-		if (!fileSystem->extractEngine(dl->name, dl->version, LSL::Util::GetCurrentPlatformString())) {
+		if (!fileSystem->extractEngine(dl->name, dl->version, platformToString(PRD_CURRENT_PLATFORM))) {
 			LOG_ERROR("Failed to extract engine %s", dl->version.c_str());
 			res = false;
 		}
