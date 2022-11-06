@@ -1,0 +1,13 @@
+Source: rapidtools
+Build-Depends: debhelper (>= 12), liblua5.1-0-dev, libgit2-dev, libminizip-dev,
+ libcurl4-openssl-dev, libzip-dev, cmake, ninja-build, git
+Maintainer: BeyondAllReason Devs <no-reply@beyondallreason.dev>
+Rules-Requires-Root: no
+
+Package: rapidtools
+Section: utils
+Priority: optional
+Architecture: any
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Description: Beyond All Reason Rapid Tools
+ Collection of tools for managing Spring RTS rapid repository.
