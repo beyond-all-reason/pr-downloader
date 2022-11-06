@@ -1,0 +1,31 @@
+name: Build Rapid Tools
+permissions:
+  contents: write
+on:
+  workflow_dispatch:
+    inputs:
+      debian-distro-image:
+        description: Debian distro base image for build
+        required: true
+        default: 'docker.io/library/debian:bullseye'
+jobs:
+  build_rapid_tools:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          # We want commit count
+          fetch-depth: 0
+          submodules: recursive
+      - name: Build rapidtools build environment
+        run: |
+          docker build --build-arg DISTRO="${{ github.event.inputs.debian-distro-image }}" \
+            -f scripts/rapidtools-deb/buildenv.Dockerfile -t rapidtoolsbuild scripts/rapidtools-deb
+      - name: Build rapidtools package
+        run: |
+          docker run -v $(pwd)/:/src --rm rapidtoolsbuild /src/scripts/rapidtools-deb/build-deb.sh
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          files: scripts/rapidtools-deb/*.deb
