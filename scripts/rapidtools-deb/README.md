@@ -10,8 +10,8 @@ and is intented to be used from CI script like GitHub Action to build package wi
 Example manual usage looks like this:
 
 ```
-docker build -f scripts/rapidtools-deb/buildenv.Dockerfile -t rapidtoolsbuild
-docker run -v .:/src --rm rapidtoolsbuild /src/scripts/rapidtools-deb/build-deb.sh
+docker build -f scripts/rapidtools-deb/buildenv.Dockerfile -t rapidtoolsbuild scripts/rapidtools-deb
+docker run -v $(pwd)/:/src --rm rapidtoolsbuild /src/scripts/rapidtools-deb/build-deb.sh
 ```
 
 and produces a bunch of deb packages in scripts/rapidtools-deb directory.
