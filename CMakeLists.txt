@@ -20,7 +20,7 @@ if (WIN32)
 endif ()
 
 if (MSVC)
-    add_definitions(-DWIN32_LEAN_AND_MEAN)
+    add_definitions(-DWIN32_LEAN_AND_MEAN -DNOMINMAX)
 endif ()
 
 find_package(CURL 7.84 REQUIRED)

@@ -31,7 +31,7 @@ target_include_directories(Downloader
     PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
     PRIVATE ${READERWRITERQUEUE_INCLUDE_DIRS}
 )
-set_source_files_properties(Version.cpp PROPERTIES COMPILE_DEFINITIONS "PR_DOWNLOADER_VERSION=${PR_DOWNLOADER_VERSION}")
+set_source_files_properties(Version.cpp PROPERTIES COMPILE_DEFINITIONS "PR_DOWNLOADER_VERSION=${CMAKE_PROJECT_VERSION}")
 set_property(TARGET Downloader PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 IF (WIN32)
@@ -51,6 +51,7 @@ target_link_libraries(Downloader
 
 add_library(pr-downloader_shared SHARED)
 target_link_libraries(pr-downloader_shared PUBLIC Downloader)
+set_target_properties(pr-downloader_shared PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
 add_library(pr-downloader_static STATIC)
 target_link_libraries(pr-downloader_static PUBLIC Downloader)
