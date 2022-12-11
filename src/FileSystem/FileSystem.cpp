@@ -3,13 +3,18 @@
 #include "FileSystem.h"
 #include "Util.h"
 #include "Downloader/IDownloader.h"
+#include "HashGzip.h"
 #include "HashMD5.h"
 #include "HashSHA1.h"
+#include "IHash.h"
 #include "FileData.h"
 #include "Logger.h"
 #include "SevenZipArchive.h"
 #include "ZipArchive.h"
 
+#include <cstddef>
+#include <cstdio>
+#include <memory>
 #include <zlib.h>
 #include <string.h>
 #include <list>
@@ -49,48 +54,35 @@ FILE* CFileSystem::propen(const std::string& filename,
 	return ret;
 }
 
-bool CFileSystem::fileIsValid(const FileData* mod,
-			      const std::string& filename) const
-{
-	unsigned char data[IO_BUF_SIZE];
-	FILE* f = propen(filename, "rb");
+bool CFileSystem::hashFile(IHash* outHash, const std::string& path) const {
+	char data[IO_BUF_SIZE];
+	FILE* f = propen(path, "rb");
 	if (f == nullptr) {
 		return false;
 	}
-	int fd = fileSystem->dupFileFD(f);
-	if (fd < 0) {
-		fclose(f);
-		return false;
+	outHash->Init();
+	size_t size;
+	do {
+		size = fread(data, 1, IO_BUF_SIZE, f);
+		outHash->Update(data, size);
+	} while(size == IO_BUF_SIZE);
+	bool ok = !ferror(f);
+	if (!ok) {
+		LOG_ERROR("Failed to read from %s", path.c_str());
 	}
-	gzFile inFile = gzdopen(fd, "rb");
-	if (inFile == nullptr) { // file can't be opened
-		fclose(f);
-		LOG_ERROR("Could not open file %s", filename.c_str());
-		return false;
-	}
-	HashMD5 md5hash;
-	md5hash.Init();
-	//	unsigned long filesize=0;
-	int bytes;
-	while ((bytes = gzread(inFile, data, IO_BUF_SIZE)) > 0) {
-		md5hash.Update((char*)data, bytes);
-		//		filesize=filesize+bytes;
-	}
-
-	md5hash.Final();
-	gzclose(inFile);
+	outHash->Final();
 	fclose(f);
-	/*	if (filesize!=mod->size){
-                  ERROR("File %s invalid, size wrong: %d but should be %d",
-     filename.c_str(),filesize, mod->size);
-                  return false;
-          }*/
-	if (!md5hash.compare(mod->md5, sizeof(mod->md5))) { // file is invalid
-		//		ERROR("Damaged file found: %s",filename.c_str());
-		//		removeFile(filename.c_str());
+	return ok;
+}
+
+bool CFileSystem::fileIsValid(const FileData* mod,
+			      const std::string& filename) const
+{
+	HashGzip gzipHash(std::make_unique<HashMD5>());
+	if (!hashFile(&gzipHash, filename)) {
 		return false;
 	}
-	return true;
+	return gzipHash.compare(mod->md5, sizeof(mod->md5));
 }
 
 std::string getMD5fromFilename(const std::string& path)
