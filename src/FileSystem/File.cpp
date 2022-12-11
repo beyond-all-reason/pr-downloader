@@ -19,8 +19,6 @@ bool CFile::Close(bool discard)
 {
 	if (handle == nullptr) return true;
 
-	LOG_DEBUG("closing %s%s", filename.c_str(), discard ? ", with discard" : "");
-
 	fclose(handle);
 	handle = nullptr;
 
@@ -38,7 +36,6 @@ bool CFile::Close(bool discard)
 bool CFile::Open(const std::string& filename)
 {
 	assert(handle == nullptr);
-	LOG_DEBUG("Opening %s", filename.c_str());
 	this->filename = filename;
 	fileSystem->createSubdirs(CFileSystem::DirName(filename));
 	tmpfile = filename + ".tmp";
