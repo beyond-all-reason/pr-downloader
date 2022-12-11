@@ -10,6 +10,7 @@
 
 #include "FileData.h"
 #include "HashMD5.h"
+#include "IHash.h"
 
 class SRepository;
 class CRepo;
@@ -31,6 +32,9 @@ public:
           parses the file for a mod and creates
   */
 	bool parseSdp(const std::string& filename, std::list<FileData>& files);
+
+	bool hashFile(IHash* outHash, const std::string& path) const;
+
 	/**
    *	Validates a pool-file, (checks the md5)
    */
