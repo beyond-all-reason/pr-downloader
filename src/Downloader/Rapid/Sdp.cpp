@@ -57,6 +57,7 @@ bool createPoolDirs(const std::string& root)
 
 std::unique_ptr<IDownload> CSdp::parseOrGetDownload() {
 	if (!fileSystem->fileExists(sdpPath) || !fileSystem->parseSdp(sdpPath, files)) {
+		files.clear();
 		auto dl = std::make_unique<IDownload>(sdpPath);
 		dl->addMirror(baseUrl + "/packages/" + md5 + ".sdp");
 		return dl;
@@ -91,7 +92,7 @@ bool CSdp::Download(std::vector<std::pair<CSdp*, IDownload*>> const& packages) {
 			return false;
 		}
 		for (auto [pkg, _]: packages) {
-			if (pkg->parseOrGetDownload() != nullptr) {
+			if (pkg->files.empty() && pkg->parseOrGetDownload() != nullptr) {
 				return false;
 			}
 		}
