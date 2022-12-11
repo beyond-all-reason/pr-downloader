@@ -91,7 +91,7 @@ bool CSdp::Download(std::vector<std::pair<CSdp*, IDownload*>> const& packages) {
 			return false;
 		}
 		for (auto [pkg, _]: packages) {
-			if (pkg->parseOrGetDownload() != nullptr) {
+			if (pkg->files.empty() && pkg->parseOrGetDownload() != nullptr) {
 				return false;
 			}
 		}
