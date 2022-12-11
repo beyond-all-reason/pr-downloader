@@ -24,7 +24,7 @@ public:
 	/**
 	* write bufsize bytes to the file.
 	*/
-	int Write(const char* buf, int bufsize);
+	bool Write(const char* buf, int bufsize);
 
 private:
 	std::string filename;

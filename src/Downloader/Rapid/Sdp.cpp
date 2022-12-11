@@ -231,18 +231,14 @@ static int WriteData(CSdp& sdp, const char* const buf_pos, const char* const buf
 //	LOG_DEBUG("towrite: %d total size: %d, uncomp size: %d pos: %d", towrite, fd.compsize,fd.size, sdp.file_pos);
 	assert(towrite >= 0);
 	assert(fd.compsize > 0); //.gz are always > 0
+	if (towrite == 0) {
+		return 0;
+	}
 
-	int res = 0;
-	if (towrite > 0) {
-		res = sdp.file_handle->Write(buf_pos, towrite);
+	if (!sdp.file_handle->Write(buf_pos, towrite)) {
+		return -1;
 	}
-	if (res > 0) {
-		sdp.file_pos += res;
-	}
-	if (res != towrite) {
-		LOG_ERROR("fwrite error");
-		return false;
-	}
+	sdp.file_pos += towrite;
 
 	// file finished -> next file
 	if (sdp.file_pos >= fd.compsize) {
@@ -255,7 +251,7 @@ static int WriteData(CSdp& sdp, const char* const buf_pos, const char* const buf
 		++sdp.list_it;
 		memset(sdp.cursize_buf, 0, 4); //safety
 	}
-	return res;
+	return towrite;
 }
 
 void dump_data(CSdp& sdp, const char* const /*buf_pos*/, const char* const /*buf_end*/)
