@@ -47,22 +47,24 @@ bool CFile::Open(const std::string& filename)
 	return true;
 }
 
-int CFile::Write(const char* buf, int bufsize)
+bool CFile::Write(const char* buf, int bufsize)
 {
 	assert(bufsize > 0);
 	clearerr(handle);
 	constexpr int PIECES = 1;
 	const int res = fwrite(buf, bufsize, PIECES, handle);
-	if (res != PIECES)
+	if (res != PIECES) {
 		LOG_ERROR("write error %s (%d):  %s", filename.c_str(), res,
 			  strerror(errno));
-	//	LOG("wrote bufsize %d", bufsize);
+		return false;
+	}
 	if (ferror(handle) != 0) {
 		LOG_ERROR("Error in write(): %s %s", strerror(errno), filename.c_str());
-		abort();
+		return false;
 	}
 	if (feof(handle)) {
 		LOG_ERROR("EOF in write(): %s %s", strerror(errno), filename.c_str());
+		return false;
 	}
-	return bufsize;
+	return true;
 }

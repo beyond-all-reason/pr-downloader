@@ -258,7 +258,7 @@ static size_t multi_write_data(void* ptr, size_t size, size_t nmemb,
 		if (data->download->out_hash != nullptr) {
 			data->download->out_hash->Update(buffer.get(), size);
 		}
-		if (data->download->file->Write(buffer.get(), size) != size) {
+		if (!data->download->file->Write(buffer.get(), size)) {
 			return false;
 		}
 		return true;
