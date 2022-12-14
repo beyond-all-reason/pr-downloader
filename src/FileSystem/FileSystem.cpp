@@ -264,7 +264,6 @@ bool CFileSystem::createSubdirs(const std::string& path)
 		}
 
 		const std::string tocreate = path.substr(0, i);
-		LOG_DEBUG("Checking %s", tocreate.c_str());
 		if (fileSystem->directoryExists(tocreate)) {
 			continue;
 		}

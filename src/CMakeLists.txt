@@ -19,6 +19,7 @@ add_library(Downloader STATIC
 	Downloader/Rapid/Repo.cpp
 	Downloader/Rapid/Sdp.cpp
 	Downloader/Http/DownloadData.cpp
+	Downloader/Http/ETag.cpp
 	Downloader/Http/HttpDownloader.cpp
 	Downloader/Http/IOThreadPool.cpp
 	Downloader/Http/Throttler.cpp

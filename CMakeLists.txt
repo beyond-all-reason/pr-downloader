@@ -110,7 +110,7 @@ else ()
 	find_package(ZLIB REQUIRED)
 endif ()
 
-set(CURL_MIN_VER 7.71)
+set(CURL_MIN_VER 7.84)
 if (CURL_VERSION_STRING VERSION_LESS ${CURL_MIN_VER})
 	message(WARNING "libcurl ${CURL_VERSION_STRING} found but ${CURL_MIN_VER} is required!")
 endif ()

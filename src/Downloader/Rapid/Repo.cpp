@@ -34,6 +34,7 @@ IDownload* CRepo::getDownload()
 
 	IDownload* dl = new IDownload(tmpFile);
 	dl->noCache = true;
+	dl->useETags = true;
 	dl->addMirror(repourl + "/versions.gz");
 	return dl;
 }
