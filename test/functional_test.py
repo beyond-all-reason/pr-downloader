@@ -20,7 +20,7 @@ from __future__ import annotations
 from contextlib import contextmanager, AbstractContextManager
 from dataclasses import dataclass, field
 from http import HTTPStatus
-from typing import cast, Callable, ClassVar, Generator, Iterable, Optional
+from typing import cast, Callable, ClassVar, Generator, Iterable, Optional, BinaryIO
 import argparse
 import binascii
 import gzip
@@ -228,10 +228,109 @@ class RapidRoot(RapidFile):
                 out.write(f.get_contents())
 
 
+class HTTPHandler(http.server.SimpleHTTPRequestHandler):
+    server: TestingHTTPServer
+
+    def __init__(self, request: bytes, client_address: tuple[str, int],
+                 server: TestingHTTPServer, directory: str):
+        super().__init__(request, client_address, server, directory=directory)
+
+    def get_path_etag(self) -> str:
+        path = self.translate_path(self.path)
+        with open(path, 'rb') as f:
+            return f'"{hashlib.blake2b(f.read()).hexdigest()}"'
+
+    def get_request_etag(self) -> Optional[str]:
+        return self.headers.get("If-None-Match")
+
+    def send_head(self) -> Optional[BinaryIO]:
+        for l, r in zip(self.server._resolver_locks, self.server._resolvers):
+            # Call resolver under lock because each request is handled
+            # in a separate thread so we need to make sure that there
+            # aren't any data races if resolver modifies some state.
+            with l:
+                handled, f = r(self)
+            if handled:
+                return f
+
+        path = self.translate_path(self.path)
+        try:
+            f = open(path, 'rb')
+        except OSError:
+            self.send_error(HTTPStatus.NOT_FOUND, "File not found")
+            return None
+        try:
+            etag = self.get_path_etag()
+            if self.get_request_etag() == etag:
+                self.send_response(HTTPStatus.NOT_MODIFIED)
+                self.end_headers()
+                f.close()
+                return None
+            self.send_response(HTTPStatus.OK)
+            self.send_header("ETag", etag)
+            self.send_header("Content-Type", self.guess_type(path))
+            self.send_header("Content-Length", str(os.fstat(f.fileno())[6]))
+            self.end_headers()
+            return f
+        except:
+            f.close()
+            raise
+
+    def do_POST(self) -> None:
+        # All POSTSs from pr-downloader are only for the streamer, and
+        # this function does a very basic simulation of execution of
+        # the real streamer cgi program.
+
+        path, query = self.path.rsplit('?', 1)
+        if not path.endswith('streamer.cgi'):
+            self.send_error(HTTPStatus.NOT_FOUND, 'no streamer')
+            return
+        if self.server.rapid is None:
+            self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+        shortname = path.split('/')[1]
+        if shortname not in self.server.rapid.repos:
+            self.send_error(HTTPStatus.NOT_FOUND, 'no repo')
+            return
+        for a in self.server.rapid.repos[shortname].archives.values():
+            if a.get_md5() == query:
+                archive = a
+                break
+        else:
+            self.send_error(HTTPStatus.NOT_FOUND, 'no archive')
+            return
+
+        length = int(cast(str, self.headers.get('content-length')))
+        data = self.rfile.read(length)
+        files_to_get = []
+        for b in gzip.decompress(data):
+            files_to_get.extend([bool(b & (1 << i)) for i in range(8)])
+
+        out = []
+        files_sorted = [f for _, f in sorted(list(archive.files.items()))]
+        for get, f in zip(files_to_get, files_sorted):
+            if not get:
+                continue
+            data = f.get_contents()
+            out.append(struct.pack('>I', len(data)))
+            out.append(data)
+
+        result = b''.join(out)
+
+        self.send_response(HTTPStatus.OK, "Ok")
+        self.send_header('Content-Type', 'application/octet-stream')
+        self.send_header('Content-Length', str(len(result)))
+        self.end_headers()
+        self.wfile.write(result)
+
+
+Resolver = Callable[[HTTPHandler], tuple[bool, Optional[BinaryIO]]]
+
+
 class TestingHTTPServer(http.server.ThreadingHTTPServer):
     directory: str
     rapid: Optional[RapidRoot]
-    _resolvers: list[Callable[[str], HTTPStatus]]
+    _resolvers: list[Resolver]
     _resolver_locks: list[threading.Lock]
 
     def __init__(self, directory: str) -> None:
@@ -241,79 +340,14 @@ class TestingHTTPServer(http.server.ThreadingHTTPServer):
         self.rapid = None
         super().__init__(('localhost', 0), self.create_handler)
 
-    def create_handler(
-            self, request: bytes, client_address: tuple[str, int],
-            server: TestingHTTPServer) -> http.server.BaseHTTPRequestHandler:
+    def create_handler(self, request: bytes, client_address: tuple[str, int],
+                       server: TestingHTTPServer) -> HTTPHandler:
+        return HTTPHandler(request,
+                           client_address,
+                           server,
+                           directory=self.directory)
 
-        class Handler(http.server.SimpleHTTPRequestHandler):
-
-            def do_GET(self) -> None:
-                for l, r in zip(server._resolver_locks, server._resolvers):
-                    # Call resolver under lock because each request is handled
-                    # in a separate thread so we need to make sure that there
-                    # aren't any data races if resolver modifies some state.
-                    with l:
-                        status = r(self.path)
-                    if status != HTTPStatus.OK:
-                        self.send_error(status)
-                        return
-                super().do_GET()
-
-            def do_POST(self) -> None:
-                # All POSTSs from pr-downloader are only for the streamer, and
-                # this function does a very basic simulation of execution of
-                # the real streamer cgi program.
-
-                path, query = self.path.rsplit('?', 1)
-                if not path.endswith('streamer.cgi'):
-                    self.send_error(HTTPStatus.NOT_FOUND, 'no streamer')
-                    return
-                if server.rapid is None:
-                    self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
-                    return
-                shortname = path.split('/')[1]
-                if shortname not in server.rapid.repos:
-                    self.send_error(HTTPStatus.NOT_FOUND, 'no repo')
-                    return
-                for a in server.rapid.repos[shortname].archives.values():
-                    if a.get_md5() == query:
-                        archive = a
-                        break
-                else:
-                    self.send_error(HTTPStatus.NOT_FOUND, 'no archive')
-                    return
-
-                length = int(cast(str, self.headers.get('content-length')))
-                data = self.rfile.read(length)
-                files_to_get = []
-                for b in gzip.decompress(data):
-                    files_to_get.extend([bool(b & (1 << i)) for i in range(8)])
-
-                out = []
-                files_sorted = [
-                    f for _, f in sorted(list(archive.files.items()))
-                ]
-                for get, f in zip(files_to_get, files_sorted):
-                    if not get:
-                        continue
-                    data = f.get_contents()
-                    out.append(struct.pack('>I', len(data)))
-                    out.append(data)
-
-                result = b''.join(out)
-
-                self.send_response(HTTPStatus.OK, "Ok")
-                self.send_header('Content-Type', 'application/octet-stream')
-                self.send_header('Content-Length', str(len(result)))
-                self.end_headers()
-                self.wfile.write(result)
-
-        return Handler(request,
-                       client_address,
-                       server,
-                       directory=self.directory)
-
-    def add_resolver(self, resolver: Callable[[str], HTTPStatus]) -> None:
+    def add_resolver(self, resolver: Resolver) -> None:
         self._resolvers.append(resolver)
         self._resolver_locks.append(threading.Lock())
 
@@ -323,7 +357,8 @@ class TestingHTTPServer(http.server.ThreadingHTTPServer):
 
     @contextmanager
     def serve(self) -> Generator[None, None, None]:
-        t = threading.Thread(target=self.serve_forever)
+        t = threading.Thread(
+            target=lambda: self.serve_forever(poll_interval=0.02))
         t.start()
         try:
             yield
@@ -350,13 +385,13 @@ def create_temp_dir(suffix: Optional[str] = None,
     return h()
 
 
-def fail_requests_resolver(
-        paths: dict[str, HTTPStatus]) -> Callable[[str], HTTPStatus]:
+def fail_requests_resolver(paths: dict[str, HTTPStatus]) -> Resolver:
 
-    def resolver(path: str) -> HTTPStatus:
-        if path in paths:
-            return paths[path]
-        return HTTPStatus.OK
+    def resolver(handler: HTTPHandler) -> tuple[bool, Optional[BinaryIO]]:
+        if handler.path in paths:
+            handler.send_error(paths[handler.path])
+            return True, None
+        return False, None
 
     return resolver
 
@@ -492,7 +527,8 @@ class TestDownloading(unittest.TestCase):
         for sub, rf in self.rapid.traverse():
             self.clear_dest_root()
             # we do replace as hacky way to support windows paths.
-            path = os.path.join('/', sub, rf.rapid_filename()).replace('\\', '/')
+            path = os.path.join('/', sub,
+                                rf.rapid_filename()).replace('\\', '/')
             self.server.add_resolver(
                 fail_requests_resolver({path: HTTPStatus.NOT_FOUND}))
             with self.server.serve():
@@ -636,13 +672,14 @@ class TestDownloading(unittest.TestCase):
 
         retries_left = 3
 
-        def resolver(path: str) -> HTTPStatus:
+        def resolver(handler: HTTPHandler) -> tuple[bool, Optional[BinaryIO]]:
             nonlocal retries_left
-            if path.endswith(failing_file.rapid_filename()):
+            if handler.path.endswith(failing_file.rapid_filename()):
                 if retries_left > 0:
                     retries_left -= 1
-                    return HTTPStatus.INTERNAL_SERVER_ERROR
-            return HTTPStatus.OK
+                    handler.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
+                    return True, None
+            return False, None
 
         self.server.add_resolver(resolver)
         with self.server.serve():
@@ -684,6 +721,55 @@ class TestDownloading(unittest.TestCase):
             h = hashlib.blake2b(f.read()).digest()
 
         self.assertEqual(h, self.rapid.final_hash)
+
+    def test_etags_used(self) -> None:
+        repo = self.rapid.add_repo('repo')
+        archive = repo.add_archive('pkg')
+        archive.add_file('a.txt', b'a')
+        af = archive.add_file('b.txt', b'b')
+        self.rapid.save(self.serving_root)
+
+        with self.server.serve():
+            self.assertEqual(self.call_rapid_download('repo:pkg'), 0)
+            self.assertTrue(self.verify_downloaded_rapid('repo:pkg'))
+
+        visited_file = False
+
+        def resolver1(handler: HTTPHandler) -> tuple[bool, Optional[BinaryIO]]:
+            nonlocal visited_file
+            if handler.path.endswith(repo.rapid_filename()):
+                visited_file = True
+                self.assertIsNotNone(handler.get_request_etag())
+                self.assertEqual(handler.get_path_etag(),
+                                 handler.get_request_etag())
+            return False, None
+
+        self.server.add_resolver(resolver1)
+        with self.server.serve():
+            self.assertEqual(self.call_rapid_download('repo:pkg'), 0)
+            self.assertTrue(visited_file)
+        self.server.clear_resolvers()
+
+        # Change contents of version.gz on disk so that ETag is not send
+        server = f'{self.server.server_address[0]}-{self.server.server_address[1]}'
+        with open(
+                os.path.join(self.dest_root,
+                             f'rapid/{server}/repo/versions.gz'), 'wb') as f:
+            f.write(b'asdiiada')
+
+        visited_file = False
+
+        def resolver2(handler: HTTPHandler) -> tuple[bool, Optional[BinaryIO]]:
+            nonlocal visited_file
+            if handler.path.endswith(repo.rapid_filename()):
+                visited_file = True
+                self.assertIsNone(handler.get_request_etag())
+            return False, None
+
+        self.server.add_resolver(resolver2)
+        with self.server.serve():
+            self.assertEqual(self.call_rapid_download('repo:pkg'), 0)
+            self.assertTrue(visited_file)
 
     # TODO(marekr): Fix bugs that are being reproduced by the tests below.
 

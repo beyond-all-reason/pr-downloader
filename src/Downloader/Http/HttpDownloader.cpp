@@ -30,6 +30,7 @@
 #include <json/reader.h>
 
 #include "DownloadData.h"
+#include "ETag.h"
 #include "IOThreadPool.h"
 #include "Throttler.h"
 #include "FileSystem/FileSystem.h"
@@ -328,19 +329,12 @@ static bool setupDownload(CURLM* curlm, DownloadData* piece)
 		LOG_DEBUG("Not Validating TLS");
 		curl_easy_setopt(curle, CURLOPT_SSL_VERIFYPEER, 0);
 	}
-	// TODO: Replace with ETag based caching because If-Modified-Since
-	//       can be pretty unreliable and racy in certain situations.
-	// if (fileSystem->fileExists(piece->download->name)) {
-	// 	// this sets the header If-Modified-Since -> downloads only when remote file
-	// 	// is newer than local file
-	// 	const long timestamp = fileSystem->getFileTimestamp(piece->download->name);
-	// 	if (timestamp >= 0 && piece->download->hash == nullptr) {
-	// 		// timestamp known + hash not known -> only dl when changed
-	// 		curl_easy_setopt(curle, CURLOPT_TIMECONDITION, CURL_TIMECOND_IFMODSINCE);
-	// 		curl_easy_setopt(curle, CURLOPT_TIMEVALUE, timestamp);
-	// 		curl_easy_setopt(curle, CURLOPT_FILETIME, 1);
-	// 	}
-	// }
+
+	if (piece->download->useETags) {
+		if (auto etag = getETag(piece->download->name); etag) {
+			piece->curlw->AddHeader("If-None-Match: " + etag.value());
+		}
+	}
 
 	curl_multi_add_handle(curlm, curle);
 	return true;
@@ -402,25 +396,34 @@ static std::string computeStats(std::vector<std::chrono::microseconds> in) {
 	return std::string(buf);
 }
 
-static bool handleSuccessTransfer(DownloadData* data, bool http_not_modified) {
+static bool handleSuccessTransfer(DownloadData* data, bool http_not_modified,
+                                  std::optional<std::string> etag)
+{
 	if (http_not_modified) {
+		LOG_DEBUG("ETag matched for file %s", data->download->name.c_str());
 		data->download->state = IDownload::STATE_FINISHED;
 		// To not override existing file with empty one.
 		data->force_discard = true;
 		return true;
-	} 
-	if (data->download->out_hash == nullptr) {
-		data->download->state = IDownload::STATE_FINISHED;
-		return true;
 	}
-	// Verify that hash matches with expected when we are done.
-	data->download->out_hash->Final();
-	if (!data->download->hash->compare(data->download->out_hash.get())) {
-		data->download->state = IDownload::STATE_FAILED;
-		LOG_ERROR("File %s hash validation failed.", data->download->name.c_str());
-		return false;
+	if (data->download->out_hash != nullptr) {
+		// Verify that hash matches with expected when we are done.
+		data->download->out_hash->Final();
+		if (!data->download->hash->compare(data->download->out_hash.get())) {
+			data->download->state = IDownload::STATE_FAILED;
+			LOG_ERROR("File %s hash validation failed.", data->download->name.c_str());
+			return false;
+		}
 	}
 	data->download->state = IDownload::STATE_FINISHED;
+	if (data->download->useETags && etag) {
+		// We close file already here not in cleanupDownload so that ETag
+		// computation has a final not tmp file on disk to work with.
+		if (auto f = std::move(data->download->file); !f->Close()) {
+			return false;
+		}
+		setETag(data->download->name, etag.value());
+	}
 	return true;
 }
 
@@ -441,10 +444,17 @@ static bool processMessages(CURLM* curlm,
 		long http_code = 0;
 		bool retry = false;
 		switch (msg->data.result) {
-			case CURLE_OK:
+			case CURLE_OK: {
 				curl_easy_getinfo(msg->easy_handle, CURLINFO_RESPONSE_CODE, &http_code);
-				data->thread_handle->submit(ioFailureWrap(data, [http_code] (DownloadData* data) {
-					return handleSuccessTransfer(data, http_code == 304);
+
+				struct curl_header *etagHeader;
+				std::optional<std::string> etag;
+				if (curl_easy_header(msg->easy_handle, "ETag", 0, CURLH_HEADER , -1, &etagHeader) == CURLHE_OK) {
+					etag = std::string(etagHeader->value);
+				}
+
+				data->thread_handle->submit(ioFailureWrap(data, [http_code, etag = std::move(etag)] (DownloadData* data) {
+					return handleSuccessTransfer(data, http_code == 304, std::move(etag));
 				}));
 				// Fill in stats for the transfer
 				curl_off_t ttfb, totalt;
@@ -462,6 +472,7 @@ static bool processMessages(CURLM* curlm,
 				stats->total_transfer_time.emplace_back(totalt);
 
 				break;
+			}
 			// We consider this list of errors worth retrying.
 			case CURLE_COULDNT_CONNECT:
 			case CURLE_WEIRD_SERVER_REPLY:

@@ -88,6 +88,7 @@ public:
 
 	bool validateTLS = true;
 	bool noCache = false;
+	bool useETags = false;
 private:
 	int progress = 0;
 	std::vector<std::string> mirrors;

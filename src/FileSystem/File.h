@@ -26,6 +26,11 @@ public:
 	*/
 	bool Write(const char* buf, int bufsize);
 
+	bool Write(const std::string& str)
+	{
+		return Write(str.data(), str.size());
+	}
+
 private:
 	std::string filename;
 	std::string tmpfile;
