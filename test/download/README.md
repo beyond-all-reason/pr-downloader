@@ -54,7 +54,8 @@ $ sudo podman container inspect rapid --format '{{.NetworkSettings.IPAddress}}'
 
 #### Add real package to repo
 
-We can use the `MakeZip` and `AddZip` to copy over some package from real
+We can use the [RapidTools](https://github.com/beyond-all-reason/RapidTools)
+`rapid-makezip` and `rapid-addzip` to copy over some package from real
 installation to the test repo. Here we will copy `byar:test` package.
 
 1. Temporarily copy `versions.gz` from `rapid/repos.springrts.com/byar/versions.gz`
@@ -64,27 +65,26 @@ installation to the test repo. Here we will copy `byar:test` package.
    $ cp ~/Documents/Beyond\ All\ Reason/rapid/repos.springrts.com/byar/versions.gz ~/Documents/Beyond\ All\ Reason
    ```
 
-2. Run `MakeZip` to create zip archive of package
+2. Run `rapid-makezip` to create zip archive of package
 
    ```
-   $ ./builddir/src/MakeZip ~/Documents/Beyond\ All\ Reason/ byar:test byar.zip
+   $ rapid-makezip ~/Documents/Beyond\ All\ Reason/ byar:test byar.zip
    ```
 
 3. Add it to the `main` repository used for testing
 
    ```
-   $ ./builddir/src/AddZip repo/main ~/byar.zip main:byar:test
+   $ rapid-addzip repo/main ~/byar.zip main:byar:test
    ```
 
 ### Set up streamer
 
-If you want to set up also the rapid streamer, you need to build it yourself
-(note that the Nginx image is based on Debian stable, so the build needs to be
-compatible with it) and place the binary in the `repo` directory. Then you need
-to create a symlink to it from the `main` repo:
+Streamer again comes from the RapidTools, you need to place the binary in
+the `repo` directory. Then you need to create a symlink to it from the `main`
+repo:
 
 ```
-$ ln -s ../Streamer repo/main/streamer.cgi
+$ ln -s ../rapid-streamer repo/main/streamer.cgi
 ```
 
 If there are any issues with it, you will see it in Nginx logs.
