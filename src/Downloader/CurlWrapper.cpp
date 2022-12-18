@@ -24,6 +24,8 @@ static bool verify_certificate = true;
 static const char* certDir = nullptr;
 static const char* certFile = nullptr;
 
+  
+
 static void DumpVersion()
 {
 	const curl_version_info_data* ver = curl_version_info(CURLVERSION_NOW);
