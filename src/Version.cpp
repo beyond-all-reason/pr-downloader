@@ -27,7 +27,9 @@ const char* getAgent()
 const char* platformToString(Platform platform)
 {
 	switch (platform) {
-		case Platform::Linux_x64: return "linux64";
-		case Platform::Windows_x64: return "windows64";
+		case Platform::Linux_x64:
+			return "linux64";
+		case Platform::Windows_x64:
+			return "windows64";
 	}
 }

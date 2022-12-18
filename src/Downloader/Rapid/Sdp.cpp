@@ -1,38 +1,38 @@
 /* This file is part of pr-downloader (GPL v2 or later), see the LICENSE file */
 
-#include <memory>
-#include <string>
-#include <string.h>
-#include <stdio.h>
-#include <curl/curl.h>
 #include <cstdlib>
+#include <curl/curl.h>
 #include <errno.h>
+#include <memory>
+#include <stdio.h>
+#include <string.h>
+#include <string>
 #include <unordered_set>
 
-#include "Downloader/IDownloader.h"
-#include "Sdp.h"
-#include "RapidDownloader.h"
-#include "Util.h"
-#include "Logger.h"
-#include "FileSystem/FileSystem.h"
-#include "FileSystem/FileData.h"
-#include "FileSystem/HashMD5.h"
-#include "FileSystem/HashGzip.h"
-#include "FileSystem/File.h"
 #include "Downloader/CurlWrapper.h"
 #include "Downloader/Download.h"
+#include "Downloader/IDownloader.h"
+#include "FileSystem/File.h"
+#include "FileSystem/FileData.h"
+#include "FileSystem/FileSystem.h"
+#include "FileSystem/HashGzip.h"
+#include "FileSystem/HashMD5.h"
+#include "Logger.h"
+#include "RapidDownloader.h"
+#include "Sdp.h"
+#include "Util.h"
 
 CSdp::CSdp(std::string shortname_, std::string md5_, std::string name_,
            std::vector<std::string> depends_, std::string baseUrl_)
-    : name(std::move(name_))
-    , md5(std::move(md5_))
-    , shortname(std::move(shortname_))
-    , baseUrl(std::move(baseUrl_))
-    , depends(std::move(depends_))
+	: name(std::move(name_))
+	, md5(std::move(md5_))
+	, shortname(std::move(shortname_))
+	, baseUrl(std::move(baseUrl_))
+	, depends(std::move(depends_))
 {
 	memset(cursize_buf, 0, LENGTH_SIZE);
 	const std::string dir =
-	    fileSystem->getSpringDir() + PATH_DELIMITER + "packages" + PATH_DELIMITER;
+		fileSystem->getSpringDir() + PATH_DELIMITER + "packages" + PATH_DELIMITER;
 	sdpPath = dir + md5 + ".sdp";
 }
 
@@ -46,8 +46,7 @@ bool createPoolDirs(const std::string& root)
 		char buf[1024];
 		const int len = snprintf(buf, sizeof(buf), "%s%02x%c", root.c_str(), i, PATH_DELIMITER);
 		const std::string tmp(buf, len);
-		if ((!fileSystem->directoryExists(tmp)) &&
-		    (!fileSystem->createSubdirs(tmp))) {
+		if ((!fileSystem->directoryExists(tmp)) && (!fileSystem->createSubdirs(tmp))) {
 			LOG_ERROR("Couldn't create %s", tmp.c_str());
 			return false;
 		}
@@ -55,7 +54,8 @@ bool createPoolDirs(const std::string& root)
 	return true;
 }
 
-std::unique_ptr<IDownload> CSdp::parseOrGetDownload() {
+std::unique_ptr<IDownload> CSdp::parseOrGetDownload()
+{
 	if (!fileSystem->fileExists(sdpPath) || !fileSystem->parseSdp(sdpPath, files)) {
 		files.clear();
 		auto dl = std::make_unique<IDownload>(sdpPath);
@@ -65,24 +65,28 @@ std::unique_ptr<IDownload> CSdp::parseOrGetDownload() {
 	return nullptr;
 }
 
-static std::list<IDownload*> getDownloadsList(const std::vector<std::unique_ptr<IDownload>>& downloads) {
+static std::list<IDownload*>
+getDownloadsList(const std::vector<std::unique_ptr<IDownload>>& downloads)
+{
 	std::list<IDownload*> res;
-	for (auto& dl: downloads) {
+	for (auto& dl : downloads) {
 		res.emplace_back(dl.get());
 	}
 	return res;
 }
 
-static bool useStreamerDownload() {
+static bool useStreamerDownload()
+{
 	const char* use_streamer_env = std::getenv("PRD_RAPID_USE_STREAMER");
 	return use_streamer_env == nullptr || std::string(use_streamer_env) != "false";
 }
 
-bool CSdp::Download(std::vector<std::pair<CSdp*, IDownload*>> const& packages) {
+bool CSdp::Download(std::vector<std::pair<CSdp*, IDownload*>> const& packages)
+{
 	// Download Sdp packages
 	{
 		std::vector<std::unique_ptr<IDownload>> downloads;
-		for (auto [pkg, _]: packages) {
+		for (auto [pkg, _] : packages) {
 			if (auto dl = pkg->parseOrGetDownload(); dl != nullptr) {
 				downloads.emplace_back(std::move(dl));
 			}
@@ -91,7 +95,7 @@ bool CSdp::Download(std::vector<std::pair<CSdp*, IDownload*>> const& packages) {
 		if (!httpDownload->download(downloads_list)) {
 			return false;
 		}
-		for (auto [pkg, _]: packages) {
+		for (auto [pkg, _] : packages) {
 			if (pkg->files.empty() && pkg->parseOrGetDownload() != nullptr) {
 				return false;
 			}
@@ -112,10 +116,10 @@ bool CSdp::Download(std::vector<std::pair<CSdp*, IDownload*>> const& packages) {
 			return false;
 		}
 		std::unordered_set<std::string> downloaded_md5;
-		for (const auto& [_, md5]: *pool_files) {
+		for (const auto& [_, md5] : *pool_files) {
 			downloaded_md5.insert(md5.toString());
 		}
-		for (auto [pkg, dl]: packages) {
+		for (auto [pkg, dl] : packages) {
 			if (pkg->filterDownloaded(downloaded_md5)) {
 				to_download.emplace_back(pkg, dl);
 			} else {
@@ -126,7 +130,7 @@ bool CSdp::Download(std::vector<std::pair<CSdp*, IDownload*>> const& packages) {
 
 	// Do actual download.
 	if (useStreamerDownload()) {
-		for (auto [pkg, dl]: to_download) {
+		for (auto [pkg, dl] : to_download) {
 			pkg->m_download = dl;
 			if (!pkg->downloadStream()) {
 				LOG_ERROR("Couldn't download files for %s", pkg->md5.c_str());
@@ -140,17 +144,18 @@ bool CSdp::Download(std::vector<std::pair<CSdp*, IDownload*>> const& packages) {
 		if (!downloadHTTP(to_download)) {
 			return false;
 		}
-		for (auto [_, dl]: to_download) {
+		for (auto [_, dl] : to_download) {
 			dl->state = IDownload::STATE_FINISHED;
 		}
 	}
 	return true;
 }
 
-bool CSdp::filterDownloaded(std::unordered_set<std::string> const& downloaded_md5) {
+bool CSdp::filterDownloaded(std::unordered_set<std::string> const& downloaded_md5)
+{
 	bool need_to_download = false;
-	for (FileData& filedata: files) { // check which file are available on local
-	                                  // disk -> create list of files to download
+	for (FileData& filedata : files) {  // check which file are available on local
+		                                // disk -> create list of files to download
 		HashMD5 fileMd5;
 		fileMd5.Set(filedata.md5, sizeof(filedata.md5));
 		if (downloaded_md5.find(fileMd5.toString()) == downloaded_md5.end()) {
@@ -165,14 +170,14 @@ bool CSdp::filterDownloaded(std::unordered_set<std::string> const& downloaded_md
 
 static bool OpenNextFile(CSdp& sdp)
 {
-	//file already open, return
+	// file already open, return
 	if (sdp.file_handle != nullptr) {
 		return true;
 	}
 
 	// get next file + open it
 	while (!sdp.list_it->download) {
-		//LOG_ERROR("next file");
+		// LOG_ERROR("next file");
 		sdp.list_it++;
 	}
 	assert(sdp.list_it != sdp.files.end());
@@ -182,7 +187,8 @@ static bool OpenNextFile(CSdp& sdp)
 
 	fd.compsize = parse_int32(sdp.cursize_buf);
 	// LOG_DEBUG("Read length of %d, uncompressed size from sdp: %d", fd.compsize, fd.size);
-	assert(fd.size + 5000 >= fd.compsize); // compressed file should be smaller than uncompressed file
+	assert(fd.size + 5000 >=
+	       fd.compsize);  // compressed file should be smaller than uncompressed file
 
 	fileMd5.Set(fd.md5, sizeof(fd.md5));
 	sdp.file_name = fileSystem->getPoolFilename(fileMd5.toString());
@@ -205,9 +211,10 @@ static int GetLength(CSdp& sdp, const char* const buf_pos, const char* const buf
 	memcpy(sdp.cursize_buf + sdp.skipped, buf_pos, toskip);
 	sdp.skipped += toskip;
 
-//	if (sdp.skipped > 0) { //size was in at least two packets
-		LOG_DEBUG("%.2x %.2x %.2x %.2x", sdp.cursize_buf[0], sdp.cursize_buf[1], sdp.cursize_buf[2], sdp.cursize_buf[3]);
-//	}
+	//	if (sdp.skipped > 0) { //size was in at least two packets
+	LOG_DEBUG("%.2x %.2x %.2x %.2x", sdp.cursize_buf[0], sdp.cursize_buf[1], sdp.cursize_buf[2],
+	          sdp.cursize_buf[3]);
+	//	}
 
 	return toskip;
 }
@@ -228,9 +235,10 @@ static int WriteData(CSdp& sdp, const char* const buf_pos, const char* const buf
 	// minimum of bytes to write left in file and bytes to write left in buf
 	const FileData& fd = *(sdp.list_it);
 	const long towrite = intmin(fd.compsize - sdp.file_pos, buf_end - buf_pos);
-//	LOG_DEBUG("towrite: %d total size: %d, uncomp size: %d pos: %d", towrite, fd.compsize,fd.size, sdp.file_pos);
+	//	LOG_DEBUG("towrite: %d total size: %d, uncomp size: %d pos: %d", towrite,
+	// fd.compsize,fd.size, sdp.file_pos);
 	assert(towrite >= 0);
-	assert(fd.compsize > 0); //.gz are always > 0
+	assert(fd.compsize > 0);  //.gz are always > 0
 	if (towrite == 0) {
 		return 0;
 	}
@@ -249,7 +257,7 @@ static int WriteData(CSdp& sdp, const char* const buf_pos, const char* const buf
 			return -1;
 		}
 		++sdp.list_it;
-		memset(sdp.cursize_buf, 0, 4); //safety
+		memset(sdp.cursize_buf, 0, 4);  // safety
 	}
 	return towrite;
 }
@@ -268,7 +276,7 @@ void dump_data(CSdp& sdp, const char* const /*buf_pos*/, const char* const /*buf
 */
 static size_t write_streamed_data(const void* buf, size_t size, size_t nmemb, CSdp* psdp)
 {
-	//LOG_DEBUG("write_stream_data bytes read: %d", size * nmemb);
+	// LOG_DEBUG("write_stream_data bytes read: %d", size * nmemb);
 	if (psdp == nullptr) {
 		LOG_ERROR("nullptr in write_stream_data");
 		return -1;
@@ -315,14 +323,13 @@ static size_t write_streamed_data(const void* buf, size_t size, size_t nmemb, CS
 /** *
         draw a nice download status-bar
 */
-static int progress_func(CSdp& sdp, double TotalToDownload,
-			 double NowDownloaded, double TotalToUpload,
-			 double NowUploaded)
+static int progress_func(CSdp& sdp, double TotalToDownload, double NowDownloaded,
+                         double TotalToUpload, double NowUploaded)
 {
 	if (IDownloader::AbortDownloads())
 		return -1;
 	(void)TotalToUpload;
-	(void)NowUploaded; // remove unused warning
+	(void)NowUploaded;  // remove unused warning
 	sdp.m_download->rapid_size[&sdp] = TotalToDownload;
 	sdp.m_download->map_rapid_progress[&sdp] = NowDownloaded;
 	uint64_t total = 0;
@@ -338,8 +345,8 @@ static int progress_func(CSdp& sdp, double TotalToDownload,
 		total += it.second;
 	}
 	sdp.m_download->updateProgress(total);
-	if (TotalToDownload == NowDownloaded) // force output when download is
-					      // finished
+	if (TotalToDownload == NowDownloaded)  // force output when download is
+	                                       // finished
 		LOG_PROGRESS(NowDownloaded, TotalToDownload, true);
 	else
 		LOG_PROGRESS(NowDownloaded, TotalToDownload);
@@ -366,7 +373,7 @@ bool CSdp::downloadStream()
 	std::vector<char> buf(buflen, 0);
 
 	int i = 0;
-	for (FileData& fd: files) {
+	for (FileData& fd : files) {
 		if (fd.download) {
 			buf[i / 8] |= (1 << (i % 8));
 		}
@@ -410,9 +417,10 @@ bool CSdp::downloadHTTP(std::vector<std::pair<CSdp*, IDownload*>> const& package
 {
 	std::unordered_set<std::string> md5_in_queue;
 	std::list<IDownload*> dls;
-	for (auto [pkg, _]: packages) {
-		for (FileData& fd: pkg->files) {
-			if (!fd.download) continue;
+	for (auto [pkg, _] : packages) {
+		for (FileData& fd : pkg->files) {
+			if (!fd.download)
+				continue;
 			auto fileMd5 = std::make_unique<HashMD5>();
 			fileMd5->Set(fd.md5, sizeof(fd.md5));
 			// Multiple files in sdp can map to a single file in the pool,

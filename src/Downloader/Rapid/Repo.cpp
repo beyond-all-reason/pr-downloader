@@ -1,22 +1,21 @@
 /* This file is part of pr-downloader (GPL v2 or later), see the LICENSE file */
 
 #include "Repo.h"
-#include "FileSystem/FileSystem.h"
 #include "Downloader/IDownloader.h"
+#include "FileSystem/FileSystem.h"
+#include "Logger.h"
 #include "RapidDownloader.h"
 #include "Sdp.h"
 #include "Util.h"
-#include "Logger.h"
 
-#include <zlib.h>
-#include <stdio.h>
 #include <cassert>
+#include <stdio.h>
+#include <zlib.h>
 
-CRepo::CRepo(const std::string& repourl, const std::string& _shortname,
-	     CRapidDownloader* rapid)
-    : repourl(repourl)
-    , rapid(rapid)
-    , shortname(_shortname)
+CRepo::CRepo(const std::string& repourl, const std::string& _shortname, CRapidDownloader* rapid)
+	: repourl(repourl)
+	, rapid(rapid)
+	, shortname(_shortname)
 {
 }
 
@@ -25,8 +24,8 @@ IDownload* CRepo::getDownload()
 	std::string tmp;
 	urlToPath(repourl, tmp);
 	LOG_DEBUG("%s", tmp.c_str());
-	tmpFile = fileSystem->getSpringDir() + PATH_DELIMITER + "rapid" +
-		  PATH_DELIMITER + tmp + PATH_DELIMITER + "versions.gz";
+	tmpFile = fileSystem->getSpringDir() + PATH_DELIMITER + "rapid" + PATH_DELIMITER + tmp +
+	          PATH_DELIMITER + "versions.gz";
 	fileSystem->createSubdirs(CFileSystem::DirName(tmpFile));
 	// first try already downloaded file, as repo master file rarely changes
 	if ((fileSystem->fileExists(tmpFile)) && !fileSystem->isOlder(tmpFile, REPO_RECHECK_TIME))
@@ -88,8 +87,8 @@ bool CRepo::parse()
 		if (!items[2].empty()) {
 			deps = tokenizeString(items[2], '|');
 		}
-		rapid->addRemoteSdp(CSdp(std::move(items[0]), std::move(items[1]),
-		                         std::move(items[3]), std::move(deps), repourl));
+		rapid->addRemoteSdp(CSdp(std::move(items[0]), std::move(items[1]), std::move(items[3]),
+		                         std::move(deps), repourl));
 	}
 	int errnum = Z_OK;
 	bool ok = true;

@@ -4,20 +4,19 @@
 
 #include <algorithm>
 #include <stdexcept>
-#include <string.h> //memcpy
+#include <string.h>  //memcpy
 
 extern "C" {
-#include "lib/7z/7zTypes.h"
 #include "lib/7z/7zAlloc.h"
 #include "lib/7z/7zCrc.h"
+#include "lib/7z/7zTypes.h"
 }
 
 #include "Logger.h"
 #include "Util.h"
 
 static Byte kUtf8Limits[5] = {0xC0, 0xE0, 0xF0, 0xF8, 0xFC};
-static bool Utf16_To_Utf8(char* dest, size_t* destLen, const UInt16* src,
-			  size_t srcLen)
+static bool Utf16_To_Utf8(char* dest, size_t* destLen, const UInt16* src, size_t srcLen)
 {
 	size_t destPos = 0, srcPos = 0;
 	for (;;) {
@@ -45,8 +44,7 @@ static bool Utf16_To_Utf8(char* dest, size_t* destLen, const UInt16* src,
 			if (value < (((UInt32)1) << (numAdds * 5 + 6)))
 				break;
 		if (dest)
-			dest[destPos] =
-			    (char)(kUtf8Limits[numAdds - 1] + (value >> (6 * numAdds)));
+			dest[destPos] = (char)(kUtf8Limits[numAdds - 1] + (value >> (6 * numAdds)));
 		destPos++;
 		do {
 			numAdds--;
@@ -104,7 +102,7 @@ CSevenZipArchive::CSevenZipArchive(const std::string& name)
 	allocImp.Free = SzFree;
 	allocTempImp.Alloc = SzAllocTemp;
 	allocTempImp.Free = SzFreeTemp;
-	constexpr const size_t kInputBufSize ((size_t)1 << 18);
+	constexpr const size_t kInputBufSize((size_t)1 << 18);
 
 	SzArEx_Init(&db);
 
@@ -124,7 +122,7 @@ CSevenZipArchive::CSevenZipArchive(const std::string& name)
 	lookStream.realStream = &archiveStream.vt;
 	LookToRead2_Init(&lookStream);
 	lookStream.buf = NULL;
-	lookStream.buf = (Byte *)ISzAlloc_Alloc(&allocImp, kInputBufSize);
+	lookStream.buf = (Byte*)ISzAlloc_Alloc(&allocImp, kInputBufSize);
 
 	CrcGenerateTable();
 	SzArEx_Init(&db);
@@ -147,9 +145,8 @@ CSevenZipArchive::CSevenZipArchive(const std::string& name)
 
 		const int written = GetFileName(&db, i);
 		if (written <= 0) {
-			LOG_ERROR(
-				"Error getting filename in Archive: %s %d, file skipped in %s",
-				GetErrorStr(res), res, name.c_str());
+			LOG_ERROR("Error getting filename in Archive: %s %d, file skipped in %s",
+			          GetErrorStr(res), res, name.c_str());
 			continue;
 		}
 
@@ -162,7 +159,7 @@ CSevenZipArchive::CSevenZipArchive(const std::string& name)
 		fd.origName = buf;
 		fd.fp = i;
 		fd.size = SzArEx_GetFileSize(&db, i);
-		fd.crc = 0; //; (f->Size > 0) ? f->Crc : 0;
+		fd.crc = 0;  //; (f->Size > 0) ? f->Crc : 0;
 		if (SzBitWithVals_Check(&db.Attribs, i)) {
 			// LOG_DEBUG("%s %d", fd.origName.c_str(), db.Attribs.Vals[i])
 			if (db.Attribs.Vals[i] & 1 << 16)
@@ -172,7 +169,6 @@ CSevenZipArchive::CSevenZipArchive(const std::string& name)
 		}
 		fileData.push_back(fd);
 	}
-
 }
 
 CSevenZipArchive::~CSevenZipArchive()
@@ -193,15 +189,14 @@ unsigned int CSevenZipArchive::NumFiles() const
 	return fileData.size();
 }
 
-bool CSevenZipArchive::GetFile(unsigned int fid,
-			       std::vector<unsigned char>& buffer)
+bool CSevenZipArchive::GetFile(unsigned int fid, std::vector<unsigned char>& buffer)
 {
 	// Get 7zip to decompress it
 	size_t offset;
 	size_t outSizeProcessed;
-	const SRes res = SzArEx_Extract(&db, &lookStream.vt, fileData[fid].fp, &blockIndex,
-			     &outBuffer, &outBufferSize, &offset, &outSizeProcessed,
-			     &allocImp, &allocTempImp);
+	const SRes res =
+		SzArEx_Extract(&db, &lookStream.vt, fileData[fid].fp, &blockIndex, &outBuffer,
+	                   &outBufferSize, &offset, &outSizeProcessed, &allocImp, &allocTempImp);
 	if (res == SZ_OK) {
 		buffer.resize(outSizeProcessed);
 		if (outSizeProcessed > 0) {
@@ -214,8 +209,7 @@ bool CSevenZipArchive::GetFile(unsigned int fid,
 	}
 }
 
-void CSevenZipArchive::FileInfo(unsigned int fid, std::string& name, int& size,
-				int& mode) const
+void CSevenZipArchive::FileInfo(unsigned int fid, std::string& name, int& size, int& mode) const
 {
 	name = fileData[fid].origName;
 	size = fileData[fid].size;

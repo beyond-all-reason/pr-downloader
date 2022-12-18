@@ -6,9 +6,9 @@
 #include "Downloader/IDownloader.h"
 #include "Logger.h"
 
-DownloadData::DownloadData(std::optional<IOThreadPool::Handle> handle) :
-	curlw(new CurlWrapper()),
-	thread_handle(std::move(handle))
+DownloadData::DownloadData(std::optional<IOThreadPool::Handle> handle)
+	: curlw(new CurlWrapper())
+	, thread_handle(std::move(handle))
 {
 }
 
@@ -22,14 +22,13 @@ void DownloadData::updateProgress(double total, double done)
 		const unsigned int progress = done;
 		download->updateProgress(progress);
 		const double at = static_cast<double>(approx_size) / total;
-		data_pack->progress += static_cast<int>(at * progress) -
-		                       static_cast<int>(at * old_progress);
+		data_pack->progress +=
+			static_cast<int>(at * progress) - static_cast<int>(at * old_progress);
 
 		if (IDownloader::listener != nullptr) {
 			IDownloader::listener(data_pack->progress, data_pack->size);
 		}
-		LOG_PROGRESS(data_pack->progress, data_pack->size, 
-		             data_pack->progress >= data_pack->size);
+		LOG_PROGRESS(data_pack->progress, data_pack->size, data_pack->progress >= data_pack->size);
 	} else {
 		download->updateProgress(done);
 		if (IDownloader::listener != nullptr) {

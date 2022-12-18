@@ -1,7 +1,6 @@
 /* This file is part of pr-downloader (GPL v2 or later), see the LICENSE file */
 
-#ifndef _CCHECKSUMSHA1_H
-#define _CCHECKSUMSHA1_H
+#pragma once
 
 #include "IHash.h"
 #include "lib/sha1/sha1.h"
@@ -21,5 +20,3 @@ protected:
 private:
 	SHA1Context sha1Context = {};
 };
-
-#endif

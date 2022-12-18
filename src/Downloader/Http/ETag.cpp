@@ -3,12 +3,12 @@
 #include <cstdio>
 #include <cstring>
 #include <optional>
-#include <string>
 #include <sstream>
+#include <string>
 
+#include "FileSystem/File.h"
 #include "FileSystem/FileSystem.h"
 #include "FileSystem/HashMD5.h"
-#include "FileSystem/File.h"
 #include "Logger.h"
 
 std::optional<std::string> getETag(const std::string& file)

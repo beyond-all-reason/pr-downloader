@@ -17,7 +17,8 @@ CFile::~CFile()
 
 bool CFile::Close(bool discard)
 {
-	if (handle == nullptr) return true;
+	if (handle == nullptr)
+		return true;
 
 	fclose(handle);
 	handle = nullptr;
@@ -25,7 +26,7 @@ bool CFile::Close(bool discard)
 	if (discard) {
 		fileSystem->removeFile(tmpfile);
 		return true;
-	}	
+	}
 	// delete possible existing destination file
 	if (fileSystem->fileExists(filename) && !fileSystem->removeFile(filename)) {
 		return false;
@@ -54,8 +55,7 @@ bool CFile::Write(const char* buf, int bufsize)
 	constexpr int PIECES = 1;
 	const int res = fwrite(buf, bufsize, PIECES, handle);
 	if (res != PIECES) {
-		LOG_ERROR("write error %s (%d):  %s", filename.c_str(), res,
-			  strerror(errno));
+		LOG_ERROR("write error %s (%d):  %s", filename.c_str(), res, strerror(errno));
 		return false;
 	}
 	if (ferror(handle) != 0) {

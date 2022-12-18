@@ -3,15 +3,15 @@
 #include "Downloader/IDownloader.h"
 #include "FileSystem/FileSystem.h"
 #include "Logger.h"
-#include "lib/md5/md5.h"
-#include "lib/base64/base64.h"
 #include "Version.h"
+#include "lib/base64/base64.h"
+#include "lib/md5/md5.h"
 
+#include <assert.h>
+#include <stdlib.h>
+#include <string.h>
 #include <string>
 #include <unordered_set>
-#include <string.h>
-#include <stdlib.h>
-#include <assert.h>
 #include <vector>
 
 static bool fetchDepends = true;
@@ -23,19 +23,18 @@ void SetDownloadListener(IDownloaderProcessUpdateListener listener)
 
 bool isEngineDownload(DownloadEnum::Category cat)
 {
-	return (cat == DownloadEnum::CAT_ENGINE) ||
-	       (cat == DownloadEnum::CAT_ENGINE_LINUX) ||
-	       (cat == DownloadEnum::CAT_ENGINE_LINUX64) ||
-	       (cat == DownloadEnum::CAT_ENGINE_MACOSX) ||
-	       (cat == DownloadEnum::CAT_ENGINE_WINDOWS) ||
-	       (cat == DownloadEnum::CAT_ENGINE_WINDOWS64);
+	return (cat == DownloadEnum::CAT_ENGINE) || (cat == DownloadEnum::CAT_ENGINE_LINUX) ||
+	       (cat == DownloadEnum::CAT_ENGINE_LINUX64) || (cat == DownloadEnum::CAT_ENGINE_MACOSX) ||
+	       (cat == DownloadEnum::CAT_ENGINE_WINDOWS) || (cat == DownloadEnum::CAT_ENGINE_WINDOWS64);
 }
 
 DownloadEnum::Category getPlatformEngineCat()
 {
 	switch (PRD_CURRENT_PLATFORM) {
-		case Platform::Linux_x64: return DownloadEnum::CAT_ENGINE_LINUX64;
-		case Platform::Windows_x64: return DownloadEnum::CAT_ENGINE_WINDOWS64;
+		case Platform::Linux_x64:
+			return DownloadEnum::CAT_ENGINE_LINUX64;
+		case Platform::Windows_x64:
+			return DownloadEnum::CAT_ENGINE_WINDOWS64;
 	}
 }
 
@@ -56,7 +55,8 @@ bool download_engine(std::list<IDownload*>& dllist)
 	for (const IDownload* dl : enginedls) {
 		if (!dl->isFinished())
 			continue;
-		if (!fileSystem->extractEngine(dl->name, dl->version, platformToString(PRD_CURRENT_PLATFORM))) {
+		if (!fileSystem->extractEngine(dl->name, dl->version,
+		                               platformToString(PRD_CURRENT_PLATFORM))) {
 			LOG_ERROR("Failed to extract engine %s", dl->version.c_str());
 			res = false;
 		}
@@ -82,8 +82,7 @@ IDownload* GetIDownloadByID(std::list<IDownload*>& dllist, int id)
 std::list<IDownload*> searchres;
 std::list<int> downloads;
 
-int DownloadAddByUrl(DownloadEnum::Category cat, const char* filename,
-		     const char* url)
+int DownloadAddByUrl(DownloadEnum::Category cat, const char* filename, const char* url)
 {
 	IDownload* dl = new IDownload(filename, url, cat);
 	dl->addMirror(url);
@@ -91,19 +90,18 @@ int DownloadAddByUrl(DownloadEnum::Category cat, const char* filename,
 	return searchres.size();
 }
 
-bool search(std::vector<DownloadSearchItem>& items,
-            std::list<IDownload*>& searchres)
+bool search(std::vector<DownloadSearchItem>& items, std::list<IDownload*>& searchres)
 {
 	std::vector<DownloadSearchItem*> http_search;
 	std::vector<DownloadSearchItem*> rapid_search;
 
-	for (auto& item: items) {
+	for (auto& item : items) {
 		if (item.category == DownloadEnum::CAT_ENGINE) {
 			// no platform specified, "translate" to current platform
 			item.category = getPlatformEngineCat();
 		}
 		switch (item.category) {
-			case DownloadEnum::CAT_HTTP: // no search possible!
+			case DownloadEnum::CAT_HTTP:  // no search possible!
 			case DownloadEnum::CAT_SPRINGLOBBY: {
 				return false;
 			}
@@ -130,7 +128,8 @@ bool search(std::vector<DownloadSearchItem>& items,
 	       httpDownload->search(searchres, http_search);
 }
 
-int DownloadSearch(std::vector<DownloadSearchItem>& items) {
+int DownloadSearch(std::vector<DownloadSearchItem>& items)
+{
 	IDownloader::freeResult(searchres);
 	downloads.clear();
 	if (!search(items, searchres)) {
@@ -151,7 +150,7 @@ bool DownloadGetInfo(int id, downloadInfo& info)
 	IDownload* dl = GetIDownloadByID(searchres, id);
 	if (dl != nullptr) {
 		strncpy(info.filename, dl->name.c_str(),
-			NAME_LEN - 1); // -1 because of 0 termination
+		        NAME_LEN - 1);  // -1 because of 0 termination
 		info.cat = dl->cat;
 		return true;
 	}
@@ -213,15 +212,15 @@ bool DownloadAdd(unsigned int id)
 bool addDepends(std::list<IDownload*>& dls)
 {
 	std::unordered_set<std::string> dls_set, depends_set;
-	for (auto dl: dls) {
+	for (auto dl : dls) {
 		dls_set.insert(dl->name);
 		dls_set.insert(dl->origin_name);
 	}
 	std::vector<IDownload*> download_dep(dls.begin(), dls.end());
-	while(!download_dep.empty()) {
+	while (!download_dep.empty()) {
 		std::vector<DownloadSearchItem> depend_items;
-		for (IDownload* dl: download_dep) {
-			for (const std::string& depend: dl->depend) {
+		for (IDownload* dl : download_dep) {
+			for (const std::string& depend : dl->depend) {
 				if (depends_set.find(depend) == depends_set.end() &&
 				    dls_set.find(depend) == dls_set.end()) {
 					depends_set.insert(depend);
@@ -234,7 +233,7 @@ bool addDepends(std::list<IDownload*>& dls)
 		if (!depend_items.empty() && !search(depend_items, depends_dls)) {
 			return false;
 		}
-		for (auto const& item: depend_items) {
+		for (auto const& item : depend_items) {
 			if (!item.found) {
 				LOG_ERROR("Failed to find dependency %s", item.name.c_str());
 				return false;
@@ -242,7 +241,7 @@ bool addDepends(std::list<IDownload*>& dls)
 		}
 
 		download_dep.clear();
-		for (IDownload* dl: depends_dls) {
+		for (IDownload* dl : depends_dls) {
 			if (dls_set.find(dl->name) == dls_set.end()) {
 				dls.push_back(dl);
 				// TODO FIXME: Not a nice hack to make sure that download
@@ -274,11 +273,13 @@ int DownloadStart()
 		}
 		dls.push_back(dl);
 	}
-	// at least 1024MB free disk space are required (else fragmentation will make file access way to slow!)
+	// at least 1024MB free disk space are required (else fragmentation will make file access way to
+	// slow!)
 	const unsigned long MBsNeeded = (dlsize / (1024 * 1024)) + 1024;
 
 	if (MBsFree < MBsNeeded) {
-		LOG_ERROR("Insuffcient free disk space (%u MiB) on %s: %u MiB needed", MBsFree, dldir.c_str(), MBsNeeded);
+		LOG_ERROR("Insuffcient free disk space (%u MiB) on %s: %u MiB needed", MBsFree,
+		          dldir.c_str(), MBsNeeded);
 		return 5;
 	}
 
@@ -294,7 +295,7 @@ int DownloadStart()
 	httpDownload->download(dls, 1);
 	download_engine(dls);
 	int res = 0;
-	for (const IDownload* dl: dls) {
+	for (const IDownload* dl : dls) {
 		if (dl->state != IDownload::STATE_FINISHED) {
 			res = 2;
 		}

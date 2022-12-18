@@ -1,16 +1,15 @@
 /* This file is part of pr-downloader (GPL v2 or later), see the LICENSE file */
 
-#ifndef RAPID_DOWNLOADER_H
-#define RAPID_DOWNLOADER_H
+#pragma once
 
 #include "Downloader/IDownloader.h"
 
-#include <string>
 #include <list>
 #include <stdio.h>
+#include <string>
 
 #define REPO_MASTER_RECHECK_TIME \
-	86400 // how long to cache the repo-master file in secs without rechecking
+	86400  // how long to cache the repo-master file in secs without rechecking
 #define REPO_RECHECK_TIME 0
 #define REPO_MASTER "https://repos.springrts.com/repos.gz"
 
@@ -25,25 +24,20 @@ public:
 	CRapidDownloader();
 
 	/**
-          search for a mod, searches for the short + long name
-  */
+	 * search for a mod, searches for the short + long name
+	 */
 	bool search(std::list<IDownload*>& result,
 	            const std::vector<DownloadSearchItem*>& items) override;
 	/**
-          start a download
-  */
+	 * start a download
+	 */
 	bool download(std::list<IDownload*>& downloads, int max_parallel = 10) override;
 
 	bool setOption(const std::string& key, const std::string& value) override;
 
 	void addRemoteSdp(CSdp&& dsp);
-	/**
-          parses a rep master-file
-  */
+
 private:
-	/**
-          remove a dsp from the list of remote dsps
-  */
 	bool updateRepos(const std::vector<std::string>& searchstrs);
 	bool parse();
 	bool UpdateReposGZ();
@@ -52,25 +46,17 @@ private:
 	std::list<CRepo> repos;
 
 	/**
-          download by name, for example "Complete Annihilation revision 1234"
-  */
+	 * download by name, for example "Complete Annihilation revision 1234"
+	 */
 	bool download_name(std::list<IDownload*>& downloads);
+
 	/**
-          update all repos from the web
-  */
-	/**
-          helper function for sort
-  */
-	/**
-  *	compare str1 with str2
-  *	if str2==* or "" it matches
-  *	used for search in downloaders
-  */
-	static bool match_download_name(const std::string& str1,
-					const std::string& str2);
+	 * compare str1 with str2
+	 * if str2==* or "" it matches
+	 * used for search in downloaders
+	 */
+	static bool match_download_name(const std::string& str1, const std::string& str2);
 
 	static bool list_compare(const CSdp& first, const CSdp& second);
 	std::list<CSdp> sdps;
 };
-
-#endif

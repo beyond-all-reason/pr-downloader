@@ -30,19 +30,18 @@
 #include <json/reader.h>
 
 #include "DownloadData.h"
+#include "Downloader/CurlWrapper.h"
 #include "ETag.h"
-#include "IOThreadPool.h"
-#include "Throttler.h"
-#include "FileSystem/FileSystem.h"
 #include "FileSystem/File.h"
+#include "FileSystem/FileSystem.h"
 #include "FileSystem/HashMD5.h"
 #include "FileSystem/HashSHA1.h"
-#include "Util.h"
+#include "IOThreadPool.h"
 #include "Logger.h"
-#include "Downloader/CurlWrapper.h"
+#include "Throttler.h"
+#include "Util.h"
 
-static size_t WriteMemoryCallback(void* contents, size_t size, size_t nmemb,
-				  void* userp)
+static size_t WriteMemoryCallback(void* contents, size_t size, size_t nmemb, void* userp)
 {
 	if (IDownloader::AbortDownloads()) {
 		return -1;
@@ -54,8 +53,7 @@ static size_t WriteMemoryCallback(void* contents, size_t size, size_t nmemb,
 	return realsize;
 }
 
-static int progress_func(DownloadData* data, double total, double done, double,
-			 double)
+static int progress_func(DownloadData* data, double total, double done, double, double)
 {
 	if (IDownloader::AbortDownloads()) {
 		return -1;
@@ -93,8 +91,7 @@ bool CHttpDownloader::DownloadUrl(const std::string& url, std::string& res)
 	return curlres == CURLE_OK;
 }
 
-static std::string getRequestUrl(const std::string& name,
-				 DownloadEnum::Category cat)
+static std::string getRequestUrl(const std::string& name, DownloadEnum::Category cat)
 {
 	std::string http_search_url = HTTP_SEARCH_URL;
 	const char* http_search_url_env = std::getenv("PRD_HTTP_SEARCH_URL");
@@ -109,16 +106,15 @@ static std::string getRequestUrl(const std::string& name,
 	return url + std::string("springname=") + CurlWrapper::EscapeUrl(name);
 }
 
-bool CHttpDownloader::ParseResult(const std::string& /*name*/,
-				  const std::string& json,
-				  std::list<IDownload*>& res)
+bool CHttpDownloader::ParseResult(const std::string& /*name*/, const std::string& json,
+                                  std::list<IDownload*>& res)
 {
-	Json::Value result; // will contains the root value after parsing.
+	Json::Value result;  // will contains the root value after parsing.
 	Json::Reader reader;
 	const bool parsingSuccessful = reader.parse(json, result);
 	if (!parsingSuccessful) {
-		LOG_ERROR("Couldn't parse result: %s %s",
-			  reader.getFormattedErrorMessages().c_str(), json.c_str());
+		LOG_ERROR("Couldn't parse result: %s %s", reader.getFormattedErrorMessages().c_str(),
+		          json.c_str());
 		return false;
 	}
 
@@ -151,8 +147,7 @@ bool CHttpDownloader::ParseResult(const std::string& /*name*/,
 			filename += "maps";
 		} else if (category == "game") {
 			filename += "games";
-		} else if (category.find("engine") ==
-			   0) { // engine_windows, engine_linux, engine_macosx
+		} else if (category.find("engine") == 0) {  // engine_windows, engine_linux, engine_macosx
 			filename += "engine";
 		} else
 			LOG_ERROR("Unknown Category %s", category.c_str());
@@ -162,8 +157,7 @@ bool CHttpDownloader::ParseResult(const std::string& /*name*/,
 			LOG_ERROR("Invalid type in result");
 			return false;
 		}
-		filename.append(
-		    CFileSystem::EscapeFilename(resfile["filename"].asString()));
+		filename.append(CFileSystem::EscapeFilename(resfile["filename"].asString()));
 
 		const DownloadEnum::Category cat = DownloadEnum::getCatFromStr(category);
 		IDownload* dl = new IDownload(filename, springname, cat);
@@ -205,7 +199,7 @@ bool CHttpDownloader::ParseResult(const std::string& /*name*/,
 bool CHttpDownloader::search(std::list<IDownload*>& res,
                              const std::vector<DownloadSearchItem*>& items)
 {
-	for (auto& item: items) {
+	for (auto& item : items) {
 		if (item->found) {
 			continue;
 		}
@@ -224,51 +218,46 @@ bool CHttpDownloader::search(std::list<IDownload*>& res,
 	return true;
 }
 
-template<class F>
+template <class F>
 IOThreadPool::WorkF ioFailureWrap(DownloadData* data, F&& f)
 {
-	return [data, f = std::move(f)] () -> IOThreadPool::OptRetF {
+	return [data, f = std::move(f)]() -> IOThreadPool::OptRetF {
 		if (data->io_failure) {
 			return std::nullopt;
 		}
 		if (!f(data)) {
 			data->io_failure = true;
-			return [data] {
-				*data->abort_download = true;
-			};
+			return [data] { *data->abort_download = true; };
 		}
 		return std::nullopt;
 	};
 }
 
-static size_t multi_write_data(void* ptr, size_t size, size_t nmemb,
-			       DownloadData* data)
+static size_t multi_write_data(void* ptr, size_t size, size_t nmemb, DownloadData* data)
 {
 	if (IDownloader::AbortDownloads())
 		return -1;
 
 	// shared_ptr because std::function must be copyable.
-	auto buffer = std::shared_ptr<char[]>(new char [size * nmemb]);
+	auto buffer = std::shared_ptr<char[]>(new char[size * nmemb]);
 	memcpy(buffer.get(), ptr, size * nmemb);
 
-	data->thread_handle->submit(ioFailureWrap(data, [
-		buffer = std::move(buffer),
-		size = size * nmemb
-	] (DownloadData* data) {
-		data->download->state = IDownload::STATE_DOWNLOADING;
-		if (data->download->out_hash != nullptr) {
-			data->download->out_hash->Update(buffer.get(), size);
-		}
-		if (!data->download->file->Write(buffer.get(), size)) {
-			return false;
-		}
-		return true;
-	}));
+	data->thread_handle->submit(
+		ioFailureWrap(data, [buffer = std::move(buffer), size = size * nmemb](DownloadData* data) {
+			data->download->state = IDownload::STATE_DOWNLOADING;
+			if (data->download->out_hash != nullptr) {
+				data->download->out_hash->Update(buffer.get(), size);
+			}
+			if (!data->download->file->Write(buffer.get(), size)) {
+				return false;
+			}
+			return true;
+		}));
 	return size * nmemb;
 }
 
 // Computes the exponential retry duration to wait before making next request.
-template <class D1, class D2, class DR = typename std::common_type<D1,D2>::type>
+template <class D1, class D2, class DR = typename std::common_type<D1, D2>::type>
 static DR retryAfter(int retry_num, D1 base_delay, D2 max_delay, double factor = 2.0)
 {
 	static std::default_random_engine gen(std::random_device{}());
@@ -350,7 +339,8 @@ static bool cleanupDownload(DownloadData* data)
 			dl->state = IDownload::STATE_FAILED;
 		}
 		// Drop temp written file when downloading didn't succeed.
-		ok = dl->file->Close(/*discard=*/dl->state != IDownload::STATE_FINISHED || data->force_discard);
+		ok = dl->file->Close(/*discard=*/dl->state != IDownload::STATE_FINISHED ||
+		                     data->force_discard);
 		dl->file = nullptr;
 	}
 	return ok;
@@ -363,7 +353,8 @@ struct HTTPStats {
 	std::vector<std::chrono::microseconds> total_transfer_time;
 };
 
-static std::string curlHttpVersionToString(long version) {
+static std::string curlHttpVersionToString(long version)
+{
 	switch (version) {
 		case CURL_HTTP_VERSION_1_0:
 			return "HTTP/1.0";
@@ -378,7 +369,8 @@ static std::string curlHttpVersionToString(long version) {
 	}
 }
 
-static std::string computeStats(std::vector<std::chrono::microseconds> in) {
+static std::string computeStats(std::vector<std::chrono::microseconds> in)
+{
 	assert(in.size() > 0);
 	char buf[200];
 	if (in.size() == 1) {
@@ -386,13 +378,12 @@ static std::string computeStats(std::vector<std::chrono::microseconds> in) {
 		return std::string(buf);
 	}
 	std::vector<double> t(in.size());
-	std::transform(in.begin(), in.end(), t.begin(), [](std::chrono::microseconds i) {
-		return i.count() / 1000.0;
-	});
+	std::transform(in.begin(), in.end(), t.begin(),
+	               [](std::chrono::microseconds i) { return i.count() / 1000.0; });
 	std::sort(t.begin(), t.end(), std::greater<double>());
 	double mean = std::accumulate(t.begin(), t.end(), 0.0) / t.size();
-	snprintf(buf, sizeof(buf), "[max: %.3fms 95%%: %.3fms median: %.3fms mean: %.3fms]",
-	         t[0], t[static_cast<int>(0.05 * t.size())], t[t.size() / 2], mean);
+	snprintf(buf, sizeof(buf), "[max: %.3fms 95%%: %.3fms median: %.3fms mean: %.3fms]", t[0],
+	         t[static_cast<int>(0.05 * t.size())], t[t.size() / 2], mean);
 	return std::string(buf);
 }
 
@@ -427,9 +418,7 @@ static bool handleSuccessTransfer(DownloadData* data, bool http_not_modified,
 	return true;
 }
 
-static bool processMessages(CURLM* curlm,
-                            std::vector<DownloadData*>* to_retry,
-                            HTTPStats *stats)
+static bool processMessages(CURLM* curlm, std::vector<DownloadData*>* to_retry, HTTPStats* stats)
 {
 	int msgs_left;
 	bool ok = true;
@@ -447,20 +436,22 @@ static bool processMessages(CURLM* curlm,
 			case CURLE_OK: {
 				curl_easy_getinfo(msg->easy_handle, CURLINFO_RESPONSE_CODE, &http_code);
 
-				struct curl_header *etagHeader;
+				struct curl_header* etagHeader;
 				std::optional<std::string> etag;
-				if (curl_easy_header(msg->easy_handle, "ETag", 0, CURLH_HEADER , -1, &etagHeader) == CURLHE_OK) {
+				if (curl_easy_header(msg->easy_handle, "ETag", 0, CURLH_HEADER, -1, &etagHeader) ==
+				    CURLHE_OK) {
 					etag = std::string(etagHeader->value);
 				}
 
-				data->thread_handle->submit(ioFailureWrap(data, [http_code, etag = std::move(etag)] (DownloadData* data) {
-					return handleSuccessTransfer(data, http_code == 304, std::move(etag));
-				}));
+				data->thread_handle->submit(
+					ioFailureWrap(data, [http_code, etag = std::move(etag)](DownloadData* data) {
+						return handleSuccessTransfer(data, http_code == 304, std::move(etag));
+					}));
 				// Fill in stats for the transfer
 				curl_off_t ttfb, totalt;
 				long http_version;
 				curl_easy_getinfo(msg->easy_handle, CURLINFO_STARTTRANSFER_TIME_T, &ttfb);
-				curl_easy_getinfo(msg->easy_handle, CURLINFO_TOTAL_TIME_T , &totalt);
+				curl_easy_getinfo(msg->easy_handle, CURLINFO_TOTAL_TIME_T, &totalt);
 				curl_easy_getinfo(msg->easy_handle, CURLINFO_HTTP_VERSION, &http_version);
 				if (stats->http_version != -1 && stats->http_version != http_version) {
 					LOG_WARN("Multiple http versions used for transfer, %s and %s",
@@ -504,8 +495,8 @@ static bool processMessages(CURLM* curlm,
 				}
 
 				LOG_ERROR("CURL error(%d:%d): %s %d (%s)%s", msg->msg, msg->data.result,
-					  curl_easy_strerror(msg->data.result), http_code,
-					  data->mirror.c_str(), retry ? ", will retry" : ", aborting");
+				          curl_easy_strerror(msg->data.result), http_code, data->mirror.c_str(),
+				          retry ? ", will retry" : ", aborting");
 
 				ok = ok && retry;
 		}
@@ -518,14 +509,15 @@ static bool processMessages(CURLM* curlm,
 	return ok;
 }
 
-bool computeRetry(DownloadData* data) {
+bool computeRetry(DownloadData* data)
+{
 	const auto now = std::chrono::steady_clock::now();
 	using namespace std::chrono_literals;
 	constexpr int retry_num_limit = 10;
 	++data->retry_num;
 	if (data->retry_num > retry_num_limit) {
-		LOG_ERROR("Limit of retried (%d) reached for %s, aborting",
-		          retry_num_limit, data->download->name.c_str());
+		LOG_ERROR("Limit of retried (%d) reached for %s, aborting", retry_num_limit,
+		          data->download->name.c_str());
 		return false;
 	}
 	if (data->retry_after_from_server > 30s) {
@@ -541,8 +533,9 @@ bool computeRetry(DownloadData* data) {
 	return true;
 }
 
-static unsigned getMaxReqsPerSecLimit() {
-	unsigned long max_req_per_sec = 0; // unlimited
+static unsigned getMaxReqsPerSecLimit()
+{
+	unsigned long max_req_per_sec = 0;  // unlimited
 	const char* max_req_per_sec_env = std::getenv("PRD_MAX_HTTP_REQS_PER_SEC");
 	if (max_req_per_sec_env != nullptr) {
 		char* end;
@@ -555,13 +548,12 @@ static unsigned getMaxReqsPerSecLimit() {
 	return max_req_per_sec;
 }
 
-bool CHttpDownloader::download(std::list<IDownload*>& download,
-                               int max_parallel)
+bool CHttpDownloader::download(std::list<IDownload*>& download, int max_parallel)
 {
 	// With CURLOPT_BUFFERSIZE = 16KiB, this ends up with a very theoretical
 	// max 250MiB buffered in memory before it's written to disk.
-	IOThreadPool thread_pool(download.size() < 10 ?
-		1 : std::min(16u, std::thread::hardware_concurrency()), 1000);
+	IOThreadPool thread_pool(
+		download.size() < 10 ? 1 : std::min(16u, std::thread::hardware_concurrency()), 1000);
 
 	// Prepare downloads from input.
 	std::vector<std::unique_ptr<DownloadData>> downloads;
@@ -611,15 +603,14 @@ bool CHttpDownloader::download(std::list<IDownload*>& download,
 	auto queue_comparator = [](DownloadData* a, DownloadData* b) {
 		return a->next_retry < b->next_retry;
 	};
-	std::priority_queue<DownloadData*, std::vector<DownloadData*>,
-	                    decltype(queue_comparator)> wait_queue(queue_comparator);
+	std::priority_queue<DownloadData*, std::vector<DownloadData*>, decltype(queue_comparator)>
+		wait_queue(queue_comparator);
 	const unsigned max_req_per_sec = getMaxReqsPerSecLimit();
-	Throttler throttler(max_req_per_sec,
-	                    std::min(static_cast<unsigned>(max_parallel),
-	                             std::max(max_req_per_sec / 10, 5U)));
+	Throttler throttler(max_req_per_sec, std::min(static_cast<unsigned>(max_parallel),
+	                                              std::max(max_req_per_sec / 10, 5U)));
 
-	int running = 0;   // Number of currently running downloads + waiting for retry
-	bool aborted = true;   // We use goto with aborted because we have nested loops.
+	int running = 0;      // Number of currently running downloads + waiting for retry
+	bool aborted = true;  // We use goto with aborted because we have nested loops.
 	do {
 		CURLMcode ret = curl_multi_perform(curlm, &running);
 		if (ret != CURLM_OK) {
@@ -633,7 +624,7 @@ bool CHttpDownloader::download(std::list<IDownload*>& download,
 
 		// Add all requests that should be retried to the wait_queue with delay
 		// or fail if we did too many retries already.
-		for (DownloadData* data: to_retry) {
+		for (DownloadData* data : to_retry) {
 			if (!computeRetry(data)) {
 				goto abort;
 			}
@@ -654,8 +645,8 @@ bool CHttpDownloader::download(std::list<IDownload*>& download,
 		}
 
 		// Start more new requests so we have up to max_parallel happening.
-		for (; running < max_parallel && downloads_it != downloads.end() &&
-		       throttler.get_token(); ++running) {
+		for (; running < max_parallel && downloads_it != downloads.end() && throttler.get_token();
+		     ++running) {
 			if (!setupDownload(curlm, (*downloads_it++).get())) {
 				goto abort;
 			}
@@ -673,14 +664,15 @@ bool CHttpDownloader::download(std::list<IDownload*>& download,
 		}
 	} while (running > 0 || downloads_it != downloads.end());
 	aborted = false;
-	LOG_INFO("Download: num files: %ld, protocol: %s, to first byte: %s, transfer: %s, num retried errors: %d",
+	LOG_INFO("Download: num files: %ld, protocol: %s, to first byte: %s, transfer: %s, num retried "
+	         "errors: %d",
 	         downloads.size(), curlHttpVersionToString(stats.http_version).c_str(),
 	         computeStats(stats.time_to_first_byte).c_str(),
 	         computeStats(stats.total_transfer_time).c_str(), stats.num_errors);
 abort:
 	thread_pool.finish();
 	// Cleanup
-	for (auto& data: downloads) {
+	for (auto& data : downloads) {
 		cleanupDownload(data.get());
 		if (data->curlw != nullptr) {
 			curl_multi_remove_handle(curlm, data->curlw->GetHandle());

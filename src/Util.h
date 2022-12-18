@@ -13,63 +13,63 @@
 class FileData;
 
 /**
-        creates a url from fileinfo, for example
-        <path>/<first2chars of md5>/<last 30 chars of md5>.gz
-*/
+ * creates a url from fileinfo, for example
+ * <path>/<first2chars of md5>/<last 30 chars of md5>.gz
+ */
 std::string getUrl(const FileData* info, const std::string& path);
 
 /**
-        tokenizes a string into a vector split by c
-        empty tokens aren't ignored
-*/
+ * tokenizes a string into a vector split by c
+ * empty tokens aren't ignored
+ */
 std::vector<std::string> tokenizeString(const std::string& str, char c);
 
 /**
-* decompresses in to out
-*/
+ * decompresses in to out
+ */
 int gzip_str(const char* in, const int inlen, char* out, int* outlen);
 
 /**
-        parses an int, read from file or network
-*/
+ * parses an int, read from file or network
+ */
 unsigned int parse_int32(unsigned char c[4]);
 
 /**
-        returns minimum
-*/
+ * returns minimum
+ */
 unsigned int intmin(int x, int y);
 
 /**
-        creates a path from an url, for example:
-        http://www.server.com/path/file.gz is translated to:
-        www.server.com\path\file.gz
-*/
+ * reates a path from an url, for example:
+ * http://www.server.com/path/file.gz is translated to:
+ * www.server.com\path\file.gz
+ */
 bool urlToPath(const std::string& url, std::string& path);
 
-/*
-        convert std::wstring to std::string
-*/
+/**
+ * convert std::wstring to std::string
+ */
 std::string ws2s(const std::wstring& s);
 std::wstring s2ws(const std::string& s);
 
-/*
-        To be called as first thing in the program, ensures that argv is utf8
-        encoded on all platforms.
-*/
-void ensureUtf8Argv(int *argc, char*** argv);
+/**
+ * To be called as first thing in the program, ensures that argv is utf8 encoded on all platforms.
+ */
+void ensureUtf8Argv(int* argc, char*** argv);
 
-/*
-         Takes argc, args and a arg_name -> has_value map with valid options
-         and returns a parsed arguments separated into options and positional
-         arguments.
+/**
+ * Takes argc, args and a arg_name -> has_value map with valid options and returns a parsed
+ * arguments separated into options and positional arguments.
+ *
+ * Throws FlagParseEx in case of issues.
+ */
+std::pair<std::unordered_map<std::string, std::vector<std::string>>, std::vector<std::string>>
+parseArguments(int argc, char** argv, std::unordered_map<std::string, bool> const& valid_options);
 
-         Throws FlagParseEx in case of issues.
-*/
-std::pair<std::unordered_map<std::string, std::vector<std::string>>,
-          std::vector<std::string>> parseArguments(
-    int argc, char** argv, std::unordered_map<std::string, bool> const& valid_options);
-
-class ArgumentParseEx : public std::runtime_error {
-  public:
-        template<class T> ArgumentParseEx(T&& arg) : std::runtime_error(std::forward<T>(arg)) {};
+class ArgumentParseEx : public std::runtime_error
+{
+public:
+	template <class T>
+	ArgumentParseEx(T&& arg)
+		: std::runtime_error(std::forward<T>(arg)){};
 };

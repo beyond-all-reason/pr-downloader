@@ -8,9 +8,9 @@
 
 #include "Downloader/DownloadEnum.h"
 #include "Logger.h"
-#include "pr-downloader.h"
 #include "Util.h"
 #include "Version.h"
+#include "pr-downloader.h"
 
 void show_version()
 {
@@ -21,12 +21,14 @@ const static std::array<std::tuple<std::string, bool, std::string>, 12> opts_arr
 	{"help", false, "Print this help message"},
 	{"version", false, "Show version of pr-downloader and quit"},
 	{"filesystem-writepath", true, "Set the directory with data, defaults to current dir"},
-	{"download-game", true, "Download games by name or rapid tag, eg. 'GG 1.2', 'gg:test', 'rapid://gg:test'"},
+	{"download-game", true,
+     "Download games by name or rapid tag, eg. 'GG 1.2', 'gg:test', 'rapid://gg:test'"},
 	{"download-map", true, "Download maps by name"},
 	{"download-engine", true, "Download engines by version"},
 	{"rapid-validate", false, "Validates correctness of files in rapid pool"},
 	{"delete", false, "Delete invalid files when executing --rapid-validate"},
-	{"validate-sdp", true, "Validate correctness of files in Sdp archive, takes full path to the Sdp file"},
+	{"validate-sdp", true,
+     "Validate correctness of files in Sdp archive, takes full path to the Sdp file"},
 	{"dump-sdp", true, "Dump contents of Sdp file, takes full path to the Sdp file"},
 	{"disable-logging", false, "Disables logging"},
 	{"disable-fetch-depends", false, "Disables downloading of dependend archives"},
@@ -35,7 +37,7 @@ const static std::array<std::tuple<std::string, bool, std::string>, 12> opts_arr
 void show_help(const char* cmd)
 {
 	std::cout << "Usage: " << cmd << "\nOptions:\n";
-	for (auto const& [arg, has_val, help]: opts_array) {
+	for (auto const& [arg, has_val, help] : opts_array) {
 		std::cout << " --" << arg;
 		if (has_val) {
 			std::cout << " <value>";
@@ -79,7 +81,7 @@ try {
 	}
 
 	std::unordered_map<std::string, bool> opts;
-	for (const auto& [flag, has_val, help]: opts_array) {
+	for (const auto& [flag, has_val, help] : opts_array) {
 		opts.emplace(flag, has_val);
 	}
 	const auto [args, positional] = parseArguments(argc, argv, opts);
@@ -91,7 +93,8 @@ try {
 		return 0;
 	}
 	if (args.count("filesystem-writepath")) {
-		DownloadSetConfig(CONFIG_FILESYSTEM_WRITEPATH, args.at("filesystem-writepath").back().c_str());
+		DownloadSetConfig(CONFIG_FILESYSTEM_WRITEPATH,
+		                  args.at("filesystem-writepath").back().c_str());
 	} else {
 		DownloadSetConfig(CONFIG_FILESYSTEM_WRITEPATH, "");
 	}
@@ -129,18 +132,17 @@ try {
 	}
 
 	std::vector<DownloadSearchItem> items;
-	for (auto [arg, cat]: std::array<std::pair<std::string, DownloadEnum::Category>, 3>{{
-		{"download-map", DownloadEnum::CAT_MAP},
-		{"download-game", DownloadEnum::CAT_GAME},
-		{"download-engine", DownloadEnum::CAT_ENGINE}
-	}}) {
+	for (auto [arg, cat] : std::array<std::pair<std::string, DownloadEnum::Category>, 3>{
+			 {{"download-map", DownloadEnum::CAT_MAP},
+	          {"download-game", DownloadEnum::CAT_GAME},
+	          {"download-engine", DownloadEnum::CAT_ENGINE}}}) {
 		if (auto it = args.find(arg); it != args.end()) {
-			for (auto val: it->second) {
+			for (auto val : it->second) {
 				items.emplace_back(cat, val);
 			}
 		}
 	}
-	for (auto val: positional) {
+	for (auto val : positional) {
 		items.emplace_back(DownloadEnum::CAT_NONE, val);
 	}
 
@@ -151,7 +153,7 @@ try {
 		return 1;
 	}
 	bool found_all = true;
-	for (auto& item: items) {
+	for (auto& item : items) {
 		if (!item.found) {
 			found_all = false;
 			LOG_ERROR("Failed to find '%s' for download", item.name.c_str());

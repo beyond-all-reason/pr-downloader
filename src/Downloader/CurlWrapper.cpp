@@ -1,24 +1,23 @@
 /* This file is part of pr-downloader (GPL v2 or later), see the LICENSE file */
 
-#include <curl/curl.h>
-#include <cstring>
 #include <array>
+#include <cstring>
+#include <curl/curl.h>
 
 #include "CurlWrapper.h"
-#include "Version.h"
-#include "FileSystem/HashSHA1.h"
-#include "FileSystem/FileSystem.h"
 #include "FileSystem/File.h"
+#include "FileSystem/FileSystem.h"
+#include "FileSystem/HashSHA1.h"
 #include "IDownloader.h"
 #include "Logger.h"
+#include "Version.h"
 
 #ifndef CURL_VERSION_BITS
 #define CURL_VERSION_BITS(x, y, z) ((x) << 16 | (y) << 8 | (z))
 #endif
 
 #ifndef CURL_AT_LEAST_VERSION
-#define CURL_AT_LEAST_VERSION(x, y, z) \
-	(LIBCURL_VERSION_NUM >= CURL_VERSION_BITS(x, y, z))
+#define CURL_AT_LEAST_VERSION(x, y, z) (LIBCURL_VERSION_NUM >= CURL_VERSION_BITS(x, y, z))
 #endif
 
 static bool verify_certificate = true;
@@ -47,12 +46,12 @@ static void ConfigureCertificates()
 
 	// Paths from https://go.dev/src/crypto/x509/root_linux.go
 	std::array<const char*, 6> certFiles = {
-		"/etc/ssl/certs/ca-certificates.crt",                // Debian/Ubuntu/Gentoo etc.
-		"/etc/pki/tls/certs/ca-bundle.crt",                  // Fedora/RHEL 6
-		"/etc/ssl/ca-bundle.pem",                            // OpenSUSE
-		"/etc/pki/tls/cacert.pem",                           // OpenELEC
-		"/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem", // CentOS/RHEL 7
-		"/etc/ssl/cert.pem",                                 // Alpine Linux
+		"/etc/ssl/certs/ca-certificates.crt",                 // Debian/Ubuntu/Gentoo etc.
+		"/etc/pki/tls/certs/ca-bundle.crt",                   // Fedora/RHEL 6
+		"/etc/ssl/ca-bundle.pem",                             // OpenSUSE
+		"/etc/pki/tls/cacert.pem",                            // OpenELEC
+		"/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem",  // CentOS/RHEL 7
+		"/etc/ssl/cert.pem",                                  // Alpine Linux
 	};
 	for (auto cf = certFiles.begin(); certFile == nullptr && cf != certFiles.end(); ++cf) {
 		if (fileSystem->fileExists(*cf)) {
@@ -64,8 +63,8 @@ static void ConfigureCertificates()
 	}
 
 	std::array<const char*, 2> certDirs = {
-		"/etc/ssl/certs",               // SLES10/SLES11, https://golang.org/issue/12139
-		"/etc/pki/tls/certs",           // Fedora/RHEL
+		"/etc/ssl/certs",      // SLES10/SLES11, https://golang.org/issue/12139
+		"/etc/pki/tls/certs",  // Fedora/RHEL
 	};
 	for (auto cd = certDirs.begin(); certDir == nullptr && cd != certDirs.end(); ++cd) {
 		if (fileSystem->directoryExists(*cd)) {
@@ -77,8 +76,10 @@ static void ConfigureCertificates()
 	}
 #endif
 
-	LOG_INFO("CURLOPT_CAINFO is %s (can be overriden by SSL_CERT_FILE env variable)", certFile == nullptr ? "nullptr" : certFile);
-	LOG_INFO("CURLOPT_CAPATH is %s (can be overriden by SSL_CERT_DIR env variable)", certDir == nullptr ? "nullptr" : certDir);
+	LOG_INFO("CURLOPT_CAINFO is %s (can be overriden by SSL_CERT_FILE env variable)",
+	         certFile == nullptr ? "nullptr" : certFile);
+	LOG_INFO("CURLOPT_CAPATH is %s (can be overriden by SSL_CERT_DIR env variable)",
+	         certDir == nullptr ? "nullptr" : certDir);
 }
 
 static void SetCAOptions(CURL* handle)
@@ -138,7 +139,8 @@ CurlWrapper::~CurlWrapper()
 	errbuf = nullptr;
 }
 
-void CurlWrapper::AddHeader(const std::string& header) {
+void CurlWrapper::AddHeader(const std::string& header)
+{
 	list = curl_slist_append(list, header.c_str());
 	curl_easy_setopt(handle, CURLOPT_HTTPHEADER, list);
 }
@@ -146,7 +148,7 @@ void CurlWrapper::AddHeader(const std::string& header) {
 std::string CurlWrapper::EscapeUrl(const std::string& url)
 {
 // Just in case we compile with some old version of curl.
-#if CURL_AT_LEAST_VERSION(7,82,0)
+#if CURL_AT_LEAST_VERSION(7, 82, 0)
 	CURL* handle = nullptr;
 #else
 	CURL* handle = curl_easy_init();
@@ -156,7 +158,7 @@ std::string CurlWrapper::EscapeUrl(const std::string& url)
 	std::string out(s);
 	curl_free(s);
 
-#if !CURL_AT_LEAST_VERSION(7,82,0)
+#if !CURL_AT_LEAST_VERSION(7, 82, 0)
 	curl_easy_cleanup(handle);
 #endif
 
@@ -166,7 +168,8 @@ std::string CurlWrapper::EscapeUrl(const std::string& url)
 // We want to reuse curl multi handle to reuse open connections across transfers.
 CURLM* global_curlm_handle = nullptr;
 
-CURLM* CurlWrapper::GetMultiHandle() {
+CURLM* CurlWrapper::GetMultiHandle()
+{
 	return global_curlm_handle;
 }
 

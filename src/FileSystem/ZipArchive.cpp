@@ -8,7 +8,7 @@
 #include "Logger.h"
 
 CZipArchive::CZipArchive(const std::string& archiveName)
-    : IArchive(archiveName)
+	: IArchive(archiveName)
 {
 	zip = unzOpen(archiveName.c_str());
 	if (!zip) {
@@ -17,8 +17,7 @@ CZipArchive::CZipArchive(const std::string& archiveName)
 	}
 
 	// We need to map file positions to speed up opening later
-	for (int ret = unzGoToFirstFile(zip); ret == UNZ_OK;
-	     ret = unzGoToNextFile(zip)) {
+	for (int ret = unzGoToFirstFile(zip); ret == UNZ_OK; ret = unzGoToNextFile(zip)) {
 		unz_file_info info;
 		char fName[512];
 
@@ -30,7 +29,7 @@ CZipArchive::CZipArchive(const std::string& archiveName)
 		}
 		const char last = fLowerName[fLowerName.length() - 1];
 		if ((last == '/') || (last == '\\')) {
-			continue; // exclude directory names
+			continue;  // exclude directory names
 		}
 
 		FileData fd;
@@ -64,8 +63,7 @@ unsigned int CZipArchive::NumFiles() const
 	return fileData.size();
 }
 
-void CZipArchive::FileInfo(unsigned int fid, std::string& name, int& size,
-			   int& mode) const
+void CZipArchive::FileInfo(unsigned int fid, std::string& name, int& size, int& mode) const
 {
 	//	assert(IsFileId(fid));
 
@@ -84,8 +82,7 @@ unsigned int CZipArchive::GetCrc32(unsigned int fid)
 // To simplify things, files are always read completely into memory from
 // the zip-file, since zlib does not provide any way of reading more
 // than one file at a time
-bool CZipArchive::GetFile(unsigned int fid,
-			  std::vector<unsigned char>& buffer)
+bool CZipArchive::GetFile(unsigned int fid, std::vector<unsigned char>& buffer)
 {
 	// Prevent opening files on missing/invalid archives
 	if (!zip) {
@@ -106,8 +103,7 @@ bool CZipArchive::GetFile(unsigned int fid,
 
 	bool ret = true;
 	if (!buffer.empty() &&
-	    unzReadCurrentFile(zip, &buffer[0], fi.uncompressed_size) !=
-		(int)fi.uncompressed_size) {
+	    unzReadCurrentFile(zip, &buffer[0], fi.uncompressed_size) != (int)fi.uncompressed_size) {
 		ret = false;
 	}
 

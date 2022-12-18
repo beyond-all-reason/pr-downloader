@@ -3,7 +3,8 @@
 #include <chrono>
 
 // Throttler is a token bucket rate limiter.
-class Throttler {
+class Throttler
+{
 public:
 	Throttler(unsigned req_per_sec_, unsigned burst_size_);
 	void refill_bucket();

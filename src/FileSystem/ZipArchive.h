@@ -1,13 +1,12 @@
 /* This file is part of the Spring engine (GPL v2 or later), see LICENSE.html */
 
-#ifndef _ZIP_ARCHIVE_H
-#define _ZIP_ARCHIVE_H
+#pragma once
 
 #include "minizip/unzip.h"
 
+#include "IArchive.h"
 #include <string>
 #include <vector>
-#include "IArchive.h"
 
 /**
  * A zip compressed, single-file archive.
@@ -28,8 +27,7 @@ public:
 protected:
 	unzFile zip;
 
-	struct FileData
-	{
+	struct FileData {
 		unz_file_pos fp;
 		int size;
 		std::string origName;
@@ -38,8 +36,5 @@ protected:
 	};
 	std::vector<FileData> fileData;
 
-	//	virtual bool GetFileImpl(unsigned int fid, std::vector<boost::uint8_t>&
-	// buffer);
+	// virtual bool GetFileImpl(unsigned int fid, std::vector<boost::uint8_t>& buffer);
 };
-
-#endif // _ZIP_ARCHIVE_H

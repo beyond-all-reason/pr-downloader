@@ -27,7 +27,8 @@ static void initCategories()
 	categories[DownloadEnum::CAT_COUNT] = "count";
 }
 
-namespace DownloadEnum {
+namespace DownloadEnum
+{
 
 std::string getCat(Category cat)
 {
@@ -47,4 +48,4 @@ Category getCatFromStr(const std::string& str)
 	return CAT_NONE;
 }
 
-}
+}  // namespace DownloadEnum
