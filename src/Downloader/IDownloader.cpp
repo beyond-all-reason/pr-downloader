@@ -1,20 +1,18 @@
 /* This file is part of pr-downloader (GPL v2 or later), see the LICENSE file */
 
 #include "IDownloader.h"
+#include "CurlWrapper.h"
 #include "Download.h"
 #include "Http/HttpDownloader.h"
-#include "Rapid/RapidDownloader.h"
-#include "CurlWrapper.h"
-#include "Util.h"
 #include "Logger.h"
+#include "Rapid/RapidDownloader.h"
+#include "Util.h"
 
 class IDownloader;
 
 IDownloader* IDownloader::httpdl = nullptr;
 IDownloader* IDownloader::rapiddl = nullptr;
 IDownloaderProcessUpdateListener IDownloader::listener = nullptr;
-
-
 
 
 void IDownloader::Initialize()
@@ -62,7 +60,7 @@ bool IDownloader::download(std::list<IDownload*>& download, int max_parallel)
 	}
 	bool res = true;
 	for (IDownload* dl : download) {
-		if (dl->isFinished()) // don't download twice
+		if (dl->isFinished())  // don't download twice
 			continue;
 
 		if (!this->download(dl, max_parallel))

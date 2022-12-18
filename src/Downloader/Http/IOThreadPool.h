@@ -15,24 +15,31 @@
 
 // Thread pool. Interface to queue work and evaluate results is not thread safe,
 // all work needs to be submitted from a single thread.
-class IOThreadPool {
+class IOThreadPool
+{
 public:
 	using RetF = std::function<void()>;
 	using OptRetF = std::optional<RetF>;
 	using WorkF = std::function<OptRetF()>;
 
-	class Handle {
+	class Handle
+	{
 		constexpr explicit Handle(IOThreadPool* threadPool, unsigned id)
-			: threadPool{threadPool}, threadId{id} {}
+			: threadPool{threadPool}
+			, threadId{id}
+		{
+		}
 
 		IOThreadPool* threadPool;
 		const unsigned threadId;
 		friend IOThreadPool;
+
 	public:
 		// Submits more work to the queue. All work submitted for the
 		// same handle will execute synchronously in the FIFO order.
 		// The call blocks if the work queue is full.
-		void submit(WorkF&& work) {
+		void submit(WorkF&& work)
+		{
 			threadPool->submit(threadId, std::move(work));
 		}
 	};
@@ -52,17 +59,21 @@ public:
 
 	// Creates a new work queue handle. Provides functionality analogous to
 	// strand in asio/Networking TS.
-	Handle getHandle() {
+	Handle getHandle()
+	{
 		assert(!threads.empty());
 		return Handle(this, threadDist(randomGen));
 	}
+
 private:
-	struct Close {};
+	struct Close {
+	};
 
 	// Submits more work to the queue. All work submitted for the same
 	// handle will execute synchronously in the FIFO order.
 	// The call blocks if the work queue is full.
-	void submit(unsigned threadId, WorkF&& work) {
+	void submit(unsigned threadId, WorkF&& work)
+	{
 		assert(!threads.empty());
 		sendQ[threadId].wait_enqueue(std::move(work));
 	}

@@ -1,7 +1,6 @@
 /* This file is part of pr-downloader (GPL v2 or later), see the LICENSE file */
 
-#ifndef I_DOWNLOADER_H
-#define I_DOWNLOADER_H
+#pragma once
 
 #include "Download.h"
 #include "pr-downloader.h"
@@ -20,7 +19,7 @@ public:
 	static IDownloader* GetRapidInstance();
 
 	/**
-	 *Initialize all Downloaders
+	 * Initialize all Downloaders
 	 */
 	static void Initialize();
 
@@ -37,32 +36,30 @@ public:
 	static bool AbortDownloads();
 
 	/**
-          download specificed download
-          @return returns true, when download was successfull
-  */
+	 * download specificed download
+	 * @return returns true, when download was successfull
+	 */
 	virtual bool download(IDownload* dl, int max_parallel = 10);
-	/**
-          download all downloads in list
-          NOTE: either download(IDownload* dl) or
-     download(std::list<IDownload*>& download) has to be implemented!
-          @return returns true, when all downloads were successfull
-  */
-	virtual bool download(std::list<IDownload*>& download,
-			      int max_parallel = 10);
 
 	/**
-  *	search for a string at the downloader
-  *	NOTE: the caller has to free the list, IDownload is allocated for each
-  *result!
-  *	@see freeResult
-  */
-	virtual bool
-	search(std::list<IDownload*>& result,
-	       const std::vector<DownloadSearchItem*>& items) = 0;
+	 * download all downloads in list
+	 * NOTE: either download(IDownload* dl) or
+	 * download(std::list<IDownload*>& download) has to be implemented!
+	 * @return returns true, when all downloads were successfull
+	 */
+	virtual bool download(std::list<IDownload*>& download, int max_parallel = 10);
 
 	/**
-  *	free's a result list
-  */
+	 * search for a string at the downloader
+	 * NOTE: the caller has to free the list, IDownload is allocated for each result!
+	 * @see freeResult
+	 */
+	virtual bool search(std::list<IDownload*>& result,
+	                    const std::vector<DownloadSearchItem*>& items) = 0;
+
+	/**
+	 * free's a result list
+	 */
 	static void freeResult(std::list<IDownload*>& list);
 
 	virtual bool setOption(const std::string& key, const std::string& value);
@@ -78,5 +75,3 @@ public:
 
 #define httpDownload IDownloader::GetHttpInstance()
 #define rapidDownload IDownloader::GetRapidInstance()
-
-#endif

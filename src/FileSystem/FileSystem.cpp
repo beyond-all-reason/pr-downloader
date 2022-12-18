@@ -1,47 +1,46 @@
 /* This file is part of pr-downloader (GPL v2 or later), see the LICENSE file */
 
 #include "FileSystem.h"
-#include "Util.h"
 #include "Downloader/IDownloader.h"
+#include "FileData.h"
 #include "HashGzip.h"
 #include "HashMD5.h"
 #include "HashSHA1.h"
 #include "IHash.h"
-#include "FileData.h"
 #include "Logger.h"
 #include "SevenZipArchive.h"
+#include "Util.h"
 #include "ZipArchive.h"
 
 #include <cstddef>
 #include <cstdio>
-#include <memory>
-#include <zlib.h>
-#include <string.h>
+#include <filesystem>
 #include <list>
+#include <memory>
+#include <stdlib.h>
+#include <string.h>
 #include <string>
 #include <sys/stat.h>
-#include <stdlib.h>
-#include <filesystem>
+#include <zlib.h>
 
 #ifdef _WIN32
-#include <windows.h>
-#include <shlobj.h>
-#include <math.h>
 #include <io.h>
+#include <math.h>
+#include <shlobj.h>
+#include <windows.h>
 #ifndef SHGFP_TYPE_CURRENT
 #define SHGFP_TYPE_CURRENT 0
 #endif
 #else
-#include <unistd.h>
-#include <sys/statvfs.h>
-#include <sys/stat.h>
 #include <errno.h>
+#include <sys/stat.h>
+#include <sys/statvfs.h>
+#include <unistd.h>
 #endif
 
 static CFileSystem* singleton = nullptr;
 
-FILE* CFileSystem::propen(const std::string& filename,
-			  const std::string& mode)
+FILE* CFileSystem::propen(const std::string& filename, const std::string& mode)
 {
 #ifdef _WIN32
 	FILE* ret = _wfopen(s2ws(filename).c_str(), s2ws(mode).c_str());
@@ -54,7 +53,8 @@ FILE* CFileSystem::propen(const std::string& filename,
 	return ret;
 }
 
-bool CFileSystem::hashFile(IHash* outHash, const std::string& path) const {
+bool CFileSystem::hashFile(IHash* outHash, const std::string& path) const
+{
 	char data[IO_BUF_SIZE];
 	FILE* f = propen(path, "rb");
 	if (f == nullptr) {
@@ -65,7 +65,7 @@ bool CFileSystem::hashFile(IHash* outHash, const std::string& path) const {
 	do {
 		size = fread(data, 1, IO_BUF_SIZE, f);
 		outHash->Update(data, size);
-	} while(size == IO_BUF_SIZE);
+	} while (size == IO_BUF_SIZE);
 	bool ok = !ferror(f);
 	if (!ok) {
 		LOG_ERROR("Failed to read from %s", path.c_str());
@@ -75,8 +75,7 @@ bool CFileSystem::hashFile(IHash* outHash, const std::string& path) const {
 	return ok;
 }
 
-bool CFileSystem::fileIsValid(const FileData* mod,
-			      const std::string& filename) const
+bool CFileSystem::fileIsValid(const FileData* mod, const std::string& filename) const
 {
 	HashGzip gzipHash(std::make_unique<HashMD5>());
 	if (!hashFile(&gzipHash, filename)) {
@@ -89,7 +88,7 @@ std::string getMD5fromFilename(const std::string& path)
 {
 	const size_t start = path.rfind(PATH_DELIMITER) + 1;
 	const size_t end = path.find(".", start);
-	return path.substr(start, end-start);
+	return path.substr(start, end - start);
 }
 
 bool CFileSystem::parseSdp(const std::string& filename, std::list<FileData>& files)
@@ -157,7 +156,8 @@ bool CFileSystem::parseSdp(const std::string& filename, std::list<FileData>& fil
 	sdpmd5.Final();
 	const std::string filehash = getMD5fromFilename(filename);
 	if (filehash != sdpmd5.toString()) {
-		LOG_ERROR("%s is invalid, deleted (%s vs %s)", filename.c_str(), filehash.c_str(), sdpmd5.toString().c_str());
+		LOG_ERROR("%s is invalid, deleted (%s vs %s)", filename.c_str(), filehash.c_str(),
+		          sdpmd5.toString().c_str());
 		removeFile(filename);
 		return false;
 	}
@@ -176,21 +176,21 @@ bool CFileSystem::setWritePath(const std::string& path)
 		if (buf != nullptr) {
 			springdir = buf;
 			springdir.append("/.spring");
-		} else { // no home: use cwd
+		} else {  // no home: use cwd
 			LOG_INFO("HOME isn't set, using CWD./spring");
 			springdir = ".spring";
 		}
 #else
 		wchar_t my_documents[MAX_PATH];
-		HRESULT result = SHGetFolderPathW(nullptr, CSIDL_PERSONAL, nullptr,
-						  SHGFP_TYPE_CURRENT, my_documents);
+		HRESULT result =
+			SHGetFolderPathW(nullptr, CSIDL_PERSONAL, nullptr, SHGFP_TYPE_CURRENT, my_documents);
 		if (result == S_OK) {
 			springdir = ws2s(my_documents);
 		}
 		springdir.append("\\My Games\\Spring");
 #endif
 	}
-	if (!springdir.empty()) { // dir has to be without slash at the end
+	if (!springdir.empty()) {  // dir has to be without slash at the end
 		if (springdir[springdir.length() - 1] == PATH_DELIMITER) {
 			springdir = springdir.substr(0, springdir.size() - 1);
 		}
@@ -227,8 +227,7 @@ bool CFileSystem::directoryExists(const std::string& path)
 #ifdef _WIN32
 	const std::wstring wpath = s2ws(path);
 	DWORD dwAttrib = GetFileAttributesW(wpath.c_str());
-	return ((dwAttrib != INVALID_FILE_ATTRIBUTES) &&
-		(dwAttrib & FILE_ATTRIBUTE_DIRECTORY));
+	return ((dwAttrib != INVALID_FILE_ATTRIBUTES) && (dwAttrib & FILE_ATTRIBUTE_DIRECTORY));
 #else
 	struct stat fileinfo;
 	const int res = stat(path.c_str(), &fileinfo);
@@ -281,22 +280,15 @@ bool CFileSystem::createSubdirs(const std::string& path)
 
 std::string CFileSystem::getPoolFilename(const std::string& md5str) const
 {
-	return fileSystem->getSpringDir()
-	 + PATH_DELIMITER
-	 + "pool"
-	 + PATH_DELIMITER
-	 + md5str.at(0)
-	 + md5str.at(1)
-	 + PATH_DELIMITER
-	 + md5str.substr(2)
-	 + ".gz";
+	return fileSystem->getSpringDir() + PATH_DELIMITER + "pool" + PATH_DELIMITER + md5str.at(0) +
+	       md5str.at(1) + PATH_DELIMITER + md5str.substr(2) + ".gz";
 }
 
 std::optional<std::vector<std::pair<std::string, HashMD5>>> CFileSystem::getPoolFiles()
 try {
 	const auto path = std::filesystem::u8path(getSpringDir() + PATH_DELIMITER + "pool");
 	std::vector<std::pair<std::string, HashMD5>> files;
-	for (const std::filesystem::directory_entry& dir_entry:
+	for (const std::filesystem::directory_entry& dir_entry :
 	     std::filesystem::recursive_directory_iterator(path)) {
 		auto const& p = dir_entry.path();
 		if (!dir_entry.is_regular_file() || p.extension() == ".tmp") {
@@ -325,7 +317,7 @@ bool CFileSystem::validatePool(bool deletebroken)
 	bool ok = true;
 	int progress = 0;
 	LOG_PROGRESS(progress, files_to_validate.size());
-	for (const auto& [path, md5]: files_to_validate) {
+	for (const auto& [path, md5] : files_to_validate) {
 		FileData filedata;
 		for (unsigned i = 0; i < 16; i++) {
 			filedata.md5[i] = md5.get(i);
@@ -357,7 +349,8 @@ bool CFileSystem::isOlder(const std::string& filename, int secs)
 	GetSystemTime(&pTime);
 	SystemTimeToFileTime(&pTime, &pFTime);
 	const time_t t = FiletimeToTimestamp(pFTime);
-	LOG_DEBUG("%s is %d seconds old, redownloading at %d", filename.c_str(), (int)(t - sb.st_ctime), secs);
+	LOG_DEBUG("%s is %d seconds old, redownloading at %d", filename.c_str(), (int)(t - sb.st_ctime),
+	          secs);
 	return (t < sb.st_ctime + secs);
 
 #else
@@ -369,7 +362,8 @@ bool CFileSystem::isOlder(const std::string& filename, int secs)
 	const time_t filetime = mktime(&lt);
 	const double diff = difftime(t, filetime);
 
-	LOG_DEBUG("checking time: %s  %.0fs >  %ds res: %d", filename.c_str(), diff, secs, (bool)(diff > secs));
+	LOG_DEBUG("checking time: %s  %.0fs >  %ds res: %d", filename.c_str(), diff, secs,
+	          (bool)(diff > secs));
 	return (diff > secs);
 #endif
 }
@@ -420,10 +414,9 @@ bool CFileSystem::dumpSDP(const std::string& filename)
 		return false;
 	LOG_INFO("md5 (filename in pool)           crc32        size filename");
 	HashMD5 md5;
-	for (const FileData& fd: files) {
+	for (const FileData& fd : files) {
 		md5.Set(fd.md5, sizeof(fd.md5));
-		LOG_INFO("%s %.8X %8d %s", md5.toString().c_str(), fd.crc32,
-		         fd.size, fd.name.c_str());
+		LOG_INFO("%s %.8X %8d %s", md5.toString().c_str(), fd.crc32, fd.size, fd.name.c_str());
 	}
 	return true;
 }
@@ -431,13 +424,13 @@ bool CFileSystem::dumpSDP(const std::string& filename)
 bool CFileSystem::validateSDP(const std::string& sdpPath)
 {
 	LOG_DEBUG("CFileSystem::validateSDP() ...");
-	if (!fileExists(sdpPath)){
+	if (!fileExists(sdpPath)) {
 		LOG_ERROR("SDP file doesn't exist: %s", sdpPath.c_str());
 		return false;
 	}
 
 	std::list<FileData> files;
-	if (!parseSdp(sdpPath, files)) {// parse downloaded file
+	if (!parseSdp(sdpPath, files)) {  // parse downloaded file
 		LOG_ERROR("Removing invalid SDP file: %s", sdpPath.c_str());
 		if (!removeFile(sdpPath)) {
 			LOG_ERROR("Failed removing %s, aborting", sdpPath.c_str());
@@ -451,7 +444,7 @@ bool CFileSystem::validateSDP(const std::string& sdpPath)
 		HashMD5 fileMd5;
 		fileMd5.Set(fd.md5, sizeof(fd.md5));
 		const std::string filePath = getPoolFilename(fileMd5.toString());
-		if(!fileExists(filePath)) {
+		if (!fileExists(filePath)) {
 			valid = false;
 			LOG_INFO("Missing file: %s", filePath.c_str());
 		} else if (!fileIsValid(&fd, filePath)) {
@@ -467,12 +460,12 @@ bool CFileSystem::validateSDP(const std::string& sdpPath)
 	return valid;
 }
 
-bool CFileSystem::extractEngine(const std::string& filename,
-				const std::string& version, const std::string& platform)
+bool CFileSystem::extractEngine(const std::string& filename, const std::string& version,
+                                const std::string& platform)
 {
 #ifdef ARCHIVE_SUPPORT
-	const std::string output = getSpringDir() + PATH_DELIMITER + "engine" + PATH_DELIMITER + platform + PATH_DELIMITER +
-				   CFileSystem::EscapeFilename(version);
+	const std::string output = getSpringDir() + PATH_DELIMITER + "engine" + PATH_DELIMITER +
+	                           platform + PATH_DELIMITER + CFileSystem::EscapeFilename(version);
 	if (!extract(filename, output)) {
 		LOG_DEBUG("Failed to extract %s %s", filename.c_str(), output.c_str());
 		return false;
@@ -490,8 +483,7 @@ bool CFileSystem::extractEngine(const std::string& filename,
 #endif
 }
 
-bool CFileSystem::extract(const std::string& filename,
-			  const std::string& dstdir, bool overwrite)
+bool CFileSystem::extract(const std::string& filename, const std::string& dstdir, bool overwrite)
 {
 #ifdef ARCHIVE_SUPPORT
 	LOG_INFO("Extracting %s to %s", filename.c_str(), dstdir.c_str());
@@ -521,8 +513,7 @@ bool CFileSystem::extract(const std::string& filename,
 			return false;
 		}
 #ifdef _WIN32
-		for (unsigned int i = 0; i < name.length();
-		     i++) { // replace / with \ on win32
+		for (unsigned int i = 0; i < name.length(); i++) {  // replace / with \ on win32
 			if (name[i] == '/')
 				name[i] = PATH_DELIMITER;
 		}
@@ -533,7 +524,7 @@ bool CFileSystem::extract(const std::string& filename,
 			tmp += PATH_DELIMITER;
 		}
 
-		tmp += name.c_str(); // FIXME: concating UTF-16
+		tmp += name.c_str();  // FIXME: concating UTF-16
 		createSubdirs(DirName(tmp));
 		if (fileSystem->fileExists(tmp)) {
 			LOG_WARN("File already exists: %s", tmp.c_str());
@@ -571,8 +562,7 @@ bool CFileSystem::extract(const std::string& filename,
 #endif
 }
 
-bool CFileSystem::Rename(const std::string& source,
-			 const std::string& destination)
+bool CFileSystem::Rename(const std::string& source, const std::string& destination)
 {
 #ifdef _WIN32
 	return MoveFileW(s2ws(source).c_str(), s2ws(destination).c_str());
@@ -640,7 +630,7 @@ unsigned long CFileSystem::getMBsFree(const std::string& path)
 	struct statvfs st;
 	const int ret = statvfs(path.c_str(), &st);
 	if (ret != 0) {
-		const char *errstr = strerror(errno);
+		const char* errstr = strerror(errno);
 		LOG_ERROR("Error getting free disk space on %s: %s", path.c_str(), errstr);
 		return 0;
 	}

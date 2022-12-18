@@ -8,7 +8,7 @@
 bool IHash::compare(const IHash* checksum) const
 {
 	assert(getSize() > 0 && checksum->getSize() > 0);
-	if (checksum == nullptr) // can't compare, so guess checksums are fine
+	if (checksum == nullptr)  // can't compare, so guess checksums are fine
 		return true;
 	if (checksum->getSize() != getSize())
 		return false;
@@ -27,8 +27,7 @@ bool IHash::compare(const unsigned char* data, int size) const
 	for (int i = 0; i < getSize(); i++) {
 		unsigned char tmp = data[i];
 		if (get(i) != tmp) {
-			LOG_INFO("compare failed(): %s %s", toString().c_str(),
-				 toString(data, size).c_str());
+			LOG_INFO("compare failed(): %s %s", toString().c_str(), toString(data, size).c_str());
 			return false;
 		}
 	}

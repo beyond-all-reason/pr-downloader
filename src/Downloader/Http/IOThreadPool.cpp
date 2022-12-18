@@ -6,7 +6,8 @@
 #include "IOThreadPool.h"
 
 IOThreadPool::IOThreadPool(unsigned poolSize, unsigned workQueueSlots)
- : randomGen(std::random_device{}()), threadDist(0, poolSize - 1)
+	: randomGen(std::random_device{}())
+	, threadDist(0, poolSize - 1)
 {
 	assert(poolSize > 0);
 	assert(workQueueSlots > 0);
@@ -30,7 +31,7 @@ IOThreadPool::~IOThreadPool()
 
 void IOThreadPool::pullResults()
 {
-	for (auto& r: recvQ) {
+	for (auto& r : recvQ) {
 		std::variant<Close, RetF> res;
 		while (r.try_dequeue(res)) {
 			assert(std::holds_alternative<RetF>(res));
@@ -42,10 +43,10 @@ void IOThreadPool::pullResults()
 void IOThreadPool::finish()
 {
 	assert(!threads.empty());
-	for (auto& s: sendQ) {
+	for (auto& s : sendQ) {
 		s.wait_enqueue(Close{});
 	}
-	for (auto& r: recvQ) {
+	for (auto& r : recvQ) {
 		while (true) {
 			std::variant<Close, RetF> res;
 			r.wait_dequeue(res);
@@ -56,7 +57,7 @@ void IOThreadPool::finish()
 			}
 		}
 	}
-	for (auto& t: threads) {
+	for (auto& t : threads) {
 		t.join();
 	}
 	threads.clear();

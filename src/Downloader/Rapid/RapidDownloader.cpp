@@ -3,12 +3,12 @@
 #include "RapidDownloader.h"
 #include "Downloader/Download.h"
 #include "FileSystem/FileSystem.h"
-#include "Util.h"
 #include "Logger.h"
 #include "Repo.h"
 #include "Sdp.h"
+#include "Util.h"
 
-#include <algorithm> //std::min
+#include <algorithm>  //std::min
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -62,9 +62,9 @@ bool CRapidDownloader::download_name(std::list<IDownload*>& downloads)
 	std::unordered_map<std::string, IDownload*> found_packages;
 	std::unordered_map<IDownload*, IDownload*> deduped;
 	std::vector<std::pair<CSdp*, IDownload*>> packages;
-	for (auto download: downloads) {
+	for (auto download : downloads) {
 		LOG_DEBUG("Using rapid to download %s", download->name.c_str());
-		for (CSdp& sdp: sdps) {
+		for (CSdp& sdp : sdps) {
 			if (!match_download_name(sdp.getName(), download->name)) {
 				continue;
 			}
@@ -74,26 +74,28 @@ bool CRapidDownloader::download_name(std::list<IDownload*>& downloads)
 				}
 			} else {
 				found_packages[sdp.getMD5()] = download;
-				LOG_INFO ("[Download] %s", sdp.getName().c_str());
+				LOG_INFO("[Download] %s", sdp.getName().c_str());
 				packages.emplace_back(&sdp, download);
 			}
 		}
 	}
 	bool ok = CSdp::Download(packages);
-	for (auto [deduped, orig]: deduped) {
+	for (auto [deduped, orig] : deduped) {
 		deduped->state = orig->state;
 	}
 	return ok;
 }
 
-static std::string stripRapidUri(std::string_view name) {
+static std::string stripRapidUri(std::string_view name)
+{
 	if (name.find("rapid://") == 0) {
 		return std::string(name.substr(8));
 	};
 	return std::string(name);
 }
 
-static std::string ensureRapidUri(std::string_view name) {
+static std::string ensureRapidUri(std::string_view name)
+{
 	if (name.find("rapid://") == 0) {
 		return std::string(name);
 	}
@@ -104,7 +106,7 @@ bool CRapidDownloader::search(std::list<IDownload*>& result,
                               const std::vector<DownloadSearchItem*>& items)
 {
 	std::vector<std::string> to_update;
-	for (auto& item: items) {
+	for (auto& item : items) {
 		if (item->found) {
 			continue;
 		}
@@ -117,7 +119,7 @@ bool CRapidDownloader::search(std::list<IDownload*>& result,
 
 	sdps.sort(list_compare);
 
-	for (auto& item: items) {
+	for (auto& item : items) {
 		if (item->found) {
 			continue;
 		}
@@ -130,11 +132,10 @@ bool CRapidDownloader::search(std::list<IDownload*>& result,
 				// We ensure "rapid://" uri for origin name to have better
 				// deduplication when resolving depends that are using uri scheme for
 				// rapid tags.
-				IDownload* dl =
-				    new IDownload(sdp.getName().c_str(), ensureRapidUri(item->name),
-				                  item->category, IDownload::TYP_RAPID);
+				IDownload* dl = new IDownload(sdp.getName().c_str(), ensureRapidUri(item->name),
+				                              item->category, IDownload::TYP_RAPID);
 				dl->addMirror(sdp.getShortName().c_str());
-				for (auto const& dep: sdp.getDepends()) {
+				for (auto const& dep : sdp.getDepends()) {
 					assert(!dep.empty());
 					dl->addDepend(dep);
 				}
@@ -148,7 +149,7 @@ bool CRapidDownloader::search(std::list<IDownload*>& result,
 bool CRapidDownloader::download(std::list<IDownload*>& downloads, int /*max_parallel*/)
 {
 	std::list<IDownload*> rapid_downloads;
-	for (auto download: downloads) {
+	for (auto download : downloads) {
 		if (download->dltype == IDownload::TYP_RAPID) {
 			rapid_downloads.emplace_back(download);
 		}
@@ -156,27 +157,25 @@ bool CRapidDownloader::download(std::list<IDownload*>& downloads, int /*max_para
 	return rapid_downloads.empty() || download_name(rapid_downloads);
 }
 
-bool CRapidDownloader::match_download_name(const std::string& str1,
-					   const std::string& str2)
+bool CRapidDownloader::match_download_name(const std::string& str1, const std::string& str2)
 {
 	return str2 == "" || str2 == "*" || str1 == str2;
 	// FIXME: add regex support for win32
 	/*
   #ifndef _WIN32
-          regex_t regex;
-          if (regcomp(&regex, str2.c_str(), 0)==0) {
-                  int res=regexec(&regex, str1.c_str(),0, nullptr, 0 );
-                  regfree(&regex);
-                  if (res==0) {
-                          return true;
-                  }
-          }
+	      regex_t regex;
+	      if (regcomp(&regex, str2.c_str(), 0)==0) {
+	              int res=regexec(&regex, str1.c_str(),0, nullptr, 0 );
+	              regfree(&regex);
+	              if (res==0) {
+	                      return true;
+	              }
+	      }
   #endif
   */
 }
 
-bool CRapidDownloader::setOption(const std::string& key,
-				 const std::string& value)
+bool CRapidDownloader::setOption(const std::string& key, const std::string& value)
 {
 	LOG_INFO("setOption %s = %s", key.c_str(), value.c_str());
 	if (key == "masterurl") {
@@ -193,12 +192,12 @@ bool CRapidDownloader::UpdateReposGZ()
 		LOG_ERROR("Invalid path: %s", tmp.c_str());
 		return false;
 	}
-	path = fileSystem->getSpringDir() + PATH_DELIMITER + "rapid" +
-	       PATH_DELIMITER + tmp;
+	path = fileSystem->getSpringDir() + PATH_DELIMITER + "rapid" + PATH_DELIMITER + tmp;
 	fileSystem->createSubdirs(CFileSystem::DirName(path));
 	LOG_DEBUG("%s", reposgzurl.c_str());
 	// first try already downloaded file, as repo master file rarely changes
-	if ((fileSystem->fileExists(path)) && (!fileSystem->isOlder(path, REPO_MASTER_RECHECK_TIME)) && parse())
+	if ((fileSystem->fileExists(path)) && (!fileSystem->isOlder(path, REPO_MASTER_RECHECK_TIME)) &&
+	    parse())
 		return true;
 	IDownload dl(path);
 	dl.noCache = true;
@@ -207,7 +206,8 @@ bool CRapidDownloader::UpdateReposGZ()
 	return httpDownload->download(&dl) && parse();
 }
 
-static bool ParseFD(FILE* f, const std::string& path, std::list<CRepo>& repos, CRapidDownloader* rapid)
+static bool ParseFD(FILE* f, const std::string& path, std::list<CRepo>& repos,
+                    CRapidDownloader* rapid)
 {
 	repos.clear();
 	int fd = fileSystem->dupFileFD(f);
@@ -224,7 +224,7 @@ static bool ParseFD(FILE* f, const std::string& path, std::list<CRepo>& repos, C
 	while (gzgets(fp, buf, sizeof(buf)) != Z_NULL) {
 		const std::string line = buf;
 		const std::vector<std::string> items = tokenizeString(line, ',');
-		if (items.size() <= 2) { // create new repo from url
+		if (items.size() <= 2) {  // create new repo from url
 			LOG_ERROR("Parse Error %s, Line %d: %s", path.c_str(), i, buf);
 			gzclose(fp);
 			return false;
@@ -278,10 +278,10 @@ bool CRapidDownloader::updateRepos(const std::vector<std::string>& searchstrs)
 	std::list<IDownload*> dls;
 	std::unordered_set<CRepo*> usedrepos;
 
-	for (auto const& searchstr: searchstrs) {
+	for (auto const& searchstr : searchstrs) {
 		std::string tag = "";
 		const std::string::size_type pos = searchstr.find(':');
-		if (pos != std::string::npos) { // a tag is found, set it
+		if (pos != std::string::npos) {  // a tag is found, set it
 			tag = searchstr.substr(0, pos);
 		}
 		for (CRepo& repo : repos) {

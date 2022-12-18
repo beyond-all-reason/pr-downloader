@@ -1,7 +1,6 @@
 /* This file is part of pr-downloader (GPL v2 or later), see the LICENSE file */
 
-#ifndef _HASH_GZIP_H
-#define _HASH_GZIP_H
+#pragma once
 
 #include <memory>
 #include <zlib.h>
@@ -28,5 +27,3 @@ private:
 	bool error = false;
 	bool stream_done = false;
 };
-
-#endif

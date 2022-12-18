@@ -2,47 +2,47 @@
 
 #include "Logger.h"
 
-#include <stdio.h>
-#include <stdarg.h>
 #include <chrono>
+#include <stdarg.h>
+#include <stdio.h>
 
 // Logging functions in standalone mode
 // prdLogRaw is supposed to flush after printing (mostly to stdout/err
 // for progress bars and such).
 static void prdLogRaw(const char* /*fileName*/, int /*line*/, const char* /*funcName*/,
-                    const char* format, va_list args)
+                      const char* format, va_list args)
 {
 	vprintf(format, args);
 	fflush(stdout);
 }
 
 // Normal logging
-static void prdLogError(const char* fileName, int line, const char* funcName,
-                      const char* format, va_list args)
+static void prdLogError(const char* fileName, int line, const char* funcName, const char* format,
+                        va_list args)
 {
 	fprintf(stderr, "[Error] %s:%d:%s():", fileName, line, funcName);
 	vfprintf(stderr, format, args);
 	fprintf(stderr, "\n");
 }
 
-static void prdLogWarn(const char* fileName, int line, const char* funcName,
-                      const char* format, va_list args)
+static void prdLogWarn(const char* fileName, int line, const char* funcName, const char* format,
+                       va_list args)
 {
 	printf("[Warn] %s:%d:%s():", fileName, line, funcName);
 	vprintf(format, args);
 	printf("\n");
 }
 
-static void prdLogInfo(const char* fileName, int line, const char* funcName,
-                     const char* format, va_list args)
+static void prdLogInfo(const char* fileName, int line, const char* funcName, const char* format,
+                       va_list args)
 {
 	printf("[Info] %s:%d:%s():", fileName, line, funcName);
 	vprintf(format, args);
 	printf("\n");
 }
 
-static void prdLogDebug(const char* fileName, int line, const char* funcName,
-                      const char* format, va_list args)
+static void prdLogDebug(const char* fileName, int line, const char* funcName, const char* format,
+                        va_list args)
 {
 	printf("[Debug] %s:%d:%s():", fileName, line, funcName);
 	vprintf(format, args);
@@ -57,8 +57,8 @@ void LOG_DISABLE(bool disableLogging)
 	logEnabled = !disableLogging;
 }
 
-extern void L_LOG(const char* fileName, int line, const char* funName,
-           L_LEVEL level, const char* format...)
+extern void L_LOG(const char* fileName, int line, const char* funName, L_LEVEL level,
+                  const char* format...)
 {
 	if (!logEnabled) {
 		return;
@@ -103,7 +103,7 @@ extern void LOG_PROGRESS(long done, long total, bool forceOutput)
 		if (!forceOutput)
 			return;
 	}
-	if (total < 0) // if total bytes are unknown set to 50%
+	if (total < 0)  // if total bytes are unknown set to 50%
 		total = done * 2;
 	float percentage = 0;
 	if (total > 0) {
@@ -115,13 +115,13 @@ extern void LOG_PROGRESS(long done, long total, bool forceOutput)
 	lastPercentage = percentage;
 
 	LOG("[Progress] %3.0f%% [", percentage * 100.0f);
-	int totaldotz = 30; // how wide you want the progress meter to be
+	int totaldotz = 30;  // how wide you want the progress meter to be
 	int dotz = percentage * totaldotz;
 	for (int i = 0; i < totaldotz; i++) {
 		if (i >= dotz)
-			LOG(" "); // blank
+			LOG(" ");  // blank
 		else
-			LOG("="); // full
+			LOG("=");  // full
 	}
 	// and back to line begin - do not forget the fflush to avoid output buffering
 	// problems!

@@ -1,5 +1,7 @@
 /* This file is part of pr-downloader (GPL v2 or later), see the LICENSE file */
 
+#pragma once
+
 #include <curl/curl.h>
 #include <string>
 
@@ -18,8 +20,8 @@ public:
 	static void KillCurl();
 	static CURLM* GetMultiHandle();
 	void AddHeader(const std::string& header);
-private:
 
+private:
 	CURL* handle;
 	char* errbuf;
 	curl_slist* list = nullptr;

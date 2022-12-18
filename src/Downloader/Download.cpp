@@ -1,20 +1,20 @@
 /* This file is part of pr-downloader (GPL v2 or later), see the LICENSE file */
 
 #include "Download.h"
-#include "Logger.h"
-#include "FileSystem/IHash.h"
 #include "FileSystem/File.h"
+#include "FileSystem/IHash.h"
+#include "Logger.h"
 
-#include <string>
 #include <list>
 #include <stdio.h>
+#include <string>
 
-IDownload::IDownload(std::string name_, std::string origin_name_,
-                     DownloadEnum::Category cat_, download_type typ_)
-    : cat(cat_)
-    , dltype(typ_)
-    , name(std::move(name_))
-    , origin_name(std::move(origin_name_))
+IDownload::IDownload(std::string name_, std::string origin_name_, DownloadEnum::Category cat_,
+                     download_type typ_)
+	: cat(cat_)
+	, dltype(typ_)
+	, name(std::move(name_))
+	, origin_name(std::move(origin_name_))
 {
 }
 

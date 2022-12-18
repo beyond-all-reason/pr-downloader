@@ -31,14 +31,15 @@ std::vector<std::string> tokenizeString(const std::string& str, char c)
 int gzip_str(const char* in, const int inlen, char* out, int* outlen)
 {
 	z_stream zlibStreamStruct;
-	zlibStreamStruct.zalloc = Z_NULL;      // Set zalloc, zfree, and opaque to Z_NULL so
-	zlibStreamStruct.zfree =  Z_NULL;      // that when we call deflateInit2 they will be
-	zlibStreamStruct.opaque = Z_NULL;      // updated to use default allocation functions.
-	zlibStreamStruct.total_out = 0;        // Total number of output bytes produced so far
-	zlibStreamStruct.next_in = (Bytef*)in; // Pointer to input bytes
-	zlibStreamStruct.avail_in = inlen;     // Number
+	zlibStreamStruct.zalloc = Z_NULL;       // Set zalloc, zfree, and opaque to Z_NULL so
+	zlibStreamStruct.zfree = Z_NULL;        // that when we call deflateInit2 they will be
+	zlibStreamStruct.opaque = Z_NULL;       // updated to use default allocation functions.
+	zlibStreamStruct.total_out = 0;         // Total number of output bytes produced so far
+	zlibStreamStruct.next_in = (Bytef*)in;  // Pointer to input bytes
+	zlibStreamStruct.avail_in = inlen;      // Number
 
-	int res = deflateInit2(&zlibStreamStruct, Z_DEFAULT_COMPRESSION, Z_DEFLATED, (15 + 16), 8, Z_DEFAULT_STRATEGY);
+	int res = deflateInit2(&zlibStreamStruct, Z_DEFAULT_COMPRESSION, Z_DEFLATED, (15 + 16), 8,
+	                       Z_DEFAULT_STRATEGY);
 	if (res != Z_OK)
 		return res;
 	do {
@@ -75,17 +76,17 @@ unsigned int intmin(int x, int y)
 bool urlToPath(const std::string& url, std::string& path)
 {
 	size_t pos = url.find("//");
-	if (pos == std::string::npos) { // not found
+	if (pos == std::string::npos) {  // not found
 		LOG_ERROR("urlToPath failed: %s", path.c_str());
 		return false;
 	}
 	path = url.substr(pos + 2);
 	pos = path.find("/", pos + 1);
-	while (pos != std::string::npos) { // replace / with "\\"
+	while (pos != std::string::npos) {  // replace / with "\\"
 		path.replace(pos, 1, 1, PATH_DELIMITER);
 		pos = path.find("/", pos + 1);
 	}
-	for (size_t i = 0; i < path.length(); i++) { // replace : in url
+	for (size_t i = 0; i < path.length(); i++) {  // replace : in url
 		if (path[i] == ':') {
 			path[i] = '-';
 		}
@@ -94,8 +95,8 @@ bool urlToPath(const std::string& url, std::string& path)
 }
 
 #ifdef _WIN32
-#include <windows.h>
 #include <shellapi.h>
+#include <windows.h>
 std::wstring s2ws(const std::string& s)
 {
 	const size_t slength = s.length();
@@ -111,7 +112,7 @@ std::string ws2s(const std::wstring& s)
 {
 	const size_t slength = s.length();
 	const int len =
-	    WideCharToMultiByte(CP_UTF8, 0, s.c_str(), slength, nullptr, 0, nullptr, nullptr);
+		WideCharToMultiByte(CP_UTF8, 0, s.c_str(), slength, nullptr, 0, nullptr, nullptr);
 	char* buf = new char[len];
 	WideCharToMultiByte(CP_UTF8, 0, s.c_str(), slength, buf, len, nullptr, nullptr);
 	std::string r(buf, len);
@@ -119,7 +120,7 @@ std::string ws2s(const std::wstring& s)
 	return r;
 }
 
-void ensureUtf8Argv(int *argc, char*** argv)
+void ensureUtf8Argv(int* argc, char*** argv)
 {
 	static std::vector<std::string> argv_strings;
 	static std::vector<const char*> argv_data;
@@ -140,15 +141,14 @@ void ensureUtf8Argv(int *argc, char*** argv)
 
 #else
 
-void ensureUtf8Argv(int *argc, char*** argv)
+void ensureUtf8Argv(int* argc, char*** argv)
 {
 }
 
 #endif
 
-std::pair<std::unordered_map<std::string, std::vector<std::string>>,
-          std::vector<std::string>> parseArguments(
-    int argc, char** argv, std::unordered_map<std::string, bool> const& valid_options)
+std::pair<std::unordered_map<std::string, std::vector<std::string>>, std::vector<std::string>>
+parseArguments(int argc, char** argv, std::unordered_map<std::string, bool> const& valid_options)
 {
 	std::vector<std::string> positional;
 	std::unordered_map<std::string, std::vector<std::string>> args;
@@ -156,30 +156,29 @@ std::pair<std::unordered_map<std::string, std::vector<std::string>>,
 		const std::string arg = argv[i];
 		if (arg.substr(0, 2) != "--") {
 			positional.emplace_back(std::move(arg));
-			continue;;
+			continue;
+			;
 		}
 		const auto eqpos = arg.find("=");
-		const std::string arg_name = arg.substr(2, eqpos-2);
+		const std::string arg_name = arg.substr(2, eqpos - 2);
 		const auto vo = valid_options.find(arg_name);
 		if (vo == valid_options.end()) {
 			throw ArgumentParseEx("unknown option --" + arg_name);
 		}
 		if (!vo->second) {
 			if (eqpos != std::string::npos) {
-				throw ArgumentParseEx(
-					"option --" + arg_name + " is not taking value, got value");
+				throw ArgumentParseEx("option --" + arg_name + " is not taking value, got value");
 			}
 			args[arg_name] = {};
 			continue;
 		}
 		std::string arg_val;
 		if (eqpos != std::string::npos) {
-			arg_val = arg.substr(eqpos+1);
+			arg_val = arg.substr(eqpos + 1);
 		} else {
 			++i;
 			if (i >= argc) {
-				throw ArgumentParseEx(
-					"option --" + arg_name + " is taking value, didn't got any");
+				throw ArgumentParseEx("option --" + arg_name + " is taking value, didn't got any");
 			}
 			arg_val = argv[i];
 		}

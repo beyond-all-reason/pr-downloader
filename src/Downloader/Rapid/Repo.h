@@ -13,12 +13,11 @@ class IDownload;
 class CRepo
 {
 public:
-	CRepo(const std::string& repourl, const std::string& shortname,
-	      CRapidDownloader* rapid);
+	CRepo(const std::string& repourl, const std::string& shortname, CRapidDownloader* rapid);
 
 	/**
-          returns download for a repo file
-                  returns true if file needs to be downloaded
+	      returns download for a repo file
+	              returns true if file needs to be downloaded
   */
 	IDownload* getDownload();
 
