@@ -15,18 +15,6 @@
     }
   ],
   "features": {
-    "rapidtools": {
-      "description": "Compile Rapid Tools",
-      "dependencies": [
-        "lua51",
-        {
-          "name": "libgit2",
-          "default-features": false,
-          "features": ["pcre2"]
-        },
-        "libzip"
-      ]
-    },
     "tests": {
       "description": "Compile Tests",
       "dependencies": ["boost-test"]
