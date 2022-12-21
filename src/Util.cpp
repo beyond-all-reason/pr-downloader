@@ -141,7 +141,7 @@ void ensureUtf8Argv(int* argc, char*** argv)
 
 #else
 
-void ensureUtf8Argv(int* argc, char*** argv)
+void ensureUtf8Argv(int*, char***)
 {
 }
 

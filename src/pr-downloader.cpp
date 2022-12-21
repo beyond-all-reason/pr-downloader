@@ -8,6 +8,7 @@
 #include "lib/md5/md5.h"
 
 #include <assert.h>
+#include <cstdlib>
 #include <stdlib.h>
 #include <string.h>
 #include <string>
@@ -35,6 +36,9 @@ DownloadEnum::Category getPlatformEngineCat()
 			return DownloadEnum::CAT_ENGINE_LINUX64;
 		case Platform::Windows_x64:
 			return DownloadEnum::CAT_ENGINE_WINDOWS64;
+		default:
+			// unreachable
+			std::abort();
 	}
 }
 

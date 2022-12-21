@@ -321,7 +321,7 @@ bool CFileSystem::validatePool(bool deletebroken)
 	}
 	auto const& files_to_validate = *res;
 	bool ok = true;
-	int progress = 0;
+	unsigned progress = 0;
 	LOG_PROGRESS(progress, files_to_validate.size());
 	for (const auto& [path, md5] : files_to_validate) {
 		FileData filedata;

@@ -5,6 +5,7 @@
 #else
 
 #include "Version.h"
+#include <cstdlib>
 
 #define QUOTEME_(x) #x
 #define QUOTEME(x) QUOTEME_(x)
@@ -31,5 +32,8 @@ const char* platformToString(Platform platform)
 			return "linux64";
 		case Platform::Windows_x64:
 			return "windows64";
+		default:
+			// unreachable
+			std::abort();
 	}
 }
