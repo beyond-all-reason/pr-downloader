@@ -239,10 +239,17 @@ bool CreateDir(const std::string& path)
 {
 	assert(!path.empty());
 #ifdef _WIN32
-	return CreateDirectory(s2ws(path).c_str(), nullptr);
+	if (CreateDirectory(s2ws(path).c_str(), nullptr) == 0) {
+		LOG_ERROR("Error creating directory %s: code %d", path.c_str(), GetLastError());
+		return false;
+	}
 #else
-	return mkdir(path.c_str(), 0755) == 0;
+	if (mkdir(path.c_str(), 0755) == -1) {
+		LOG_ERROR("Error creating directory %s: %s", path.c_str(), strerror(errno));
+		return false;
+	}
 #endif
+	return true;
 }
 
 bool CFileSystem::createSubdirs(const std::string& path)
@@ -389,7 +396,7 @@ bool CFileSystem::removeFile(const std::string& path)
 	const bool res = unlink(path.c_str()) == 0;
 #endif
 	if (!res) {
-		LOG_ERROR("Couldn't delete file %s", path.c_str());
+		LOG_ERROR("Couldn't delete file %s: %s", path.c_str(), strerror(errno));
 	}
 	return res;
 }
@@ -402,7 +409,7 @@ bool CFileSystem::removeDir(const std::string& path)
 	const bool res = rmdir(path.c_str()) == 0;
 #endif
 	if (!res) {
-		LOG_ERROR("Couldn't delete dir %s", path.c_str());
+		LOG_ERROR("Couldn't delete dir %s: %s", path.c_str(), strerror(errno));
 	}
 	return res;
 }
@@ -563,13 +570,12 @@ bool CFileSystem::extract(const std::string& filename, const std::string& dstdir
 }
 
 bool CFileSystem::Rename(const std::string& source, const std::string& destination)
-{
-#ifdef _WIN32
-	return MoveFileW(s2ws(source).c_str(), s2ws(destination).c_str());
-#else
-	int res = rename(source.c_str(), destination.c_str());
-	return (res == 0);
-#endif
+try {
+	std::filesystem::rename(std::filesystem::u8path(source), std::filesystem::u8path(destination));
+	return true;
+} catch (std::filesystem::filesystem_error const& ex) {
+	LOG_ERROR("Failed to rename %s to %s: %s", source.c_str(), destination.c_str(), ex.what());
+	return false;
 }
 
 std::string CFileSystem::DirName(const std::string& path)
@@ -622,7 +628,7 @@ unsigned long CFileSystem::getMBsFree(const std::string& path)
 	ULARGE_INTEGER freespace;
 	BOOL res = GetDiskFreeSpaceExW(s2ws(path).c_str(), &freespace, nullptr, nullptr);
 	if (!res) {
-		LOG_ERROR("Error getting free disk space on %s: %d", path.c_str(), GetLastError());
+		LOG_ERROR("Error getting free disk space on %s: code %d", path.c_str(), GetLastError());
 		return 0;
 	}
 	return freespace.QuadPart / (1024 * 1024);

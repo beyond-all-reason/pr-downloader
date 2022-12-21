@@ -42,7 +42,6 @@ bool CFile::Open(const std::string& filename)
 	tmpfile = filename + ".tmp";
 	handle = fileSystem->propen(tmpfile, "wb");
 	if (handle == nullptr) {
-		LOG_ERROR("open(%s): %s", filename.c_str(), strerror(errno));
 		return false;
 	}
 	return true;
