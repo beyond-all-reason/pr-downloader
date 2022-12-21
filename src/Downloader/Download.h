@@ -48,6 +48,8 @@ public:
 		STATE_FAILED,       // piece failed to download or verify
 		STATE_FINISHED,     // piece downloaded successfully and verified
 	};
+
+	bool write_md5sum = false;
 	// What the hash the download is supposed to have.
 	std::unique_ptr<IHash> hash;
 	// To store the actual hash of the download. Need to be set by the

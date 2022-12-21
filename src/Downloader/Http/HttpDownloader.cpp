@@ -7,9 +7,11 @@
 #include <cassert>
 #include <chrono>
 #include <cmath>
+#include <cstddef>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <functional>
 #include <memory>
 #include <numeric>
@@ -20,6 +22,7 @@
 #include <string>
 #include <sys/types.h>
 #include <thread>
+#include <zlib.h>
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -178,6 +181,7 @@ bool CHttpDownloader::ParseResult(const std::string& /*name*/, const std::string
 			dl->hash = std::make_unique<HashMD5>();
 			dl->hash->Set(resfile["md5"].asString());
 			dl->out_hash = std::make_unique<HashMD5>();
+			dl->write_md5sum = true;
 		}
 		if (resfile["size"].isInt()) {
 			dl->size = resfile["size"].asInt();
@@ -387,6 +391,48 @@ static std::string computeStats(std::vector<std::chrono::microseconds> in)
 	return std::string(buf);
 }
 
+static void writeMd5SumFile(DownloadData* data)
+{
+	const auto checksumFile = data->download->name + ".md5.gz";
+	FILE* f = fileSystem->propen(checksumFile, "wb");
+	if (f == nullptr) {
+		return;
+	}
+	int fd = fileSystem->dupFileFD(f);
+	if (fd < 0) {
+		fclose(f);
+		return;
+	}
+	gzFile out = gzdopen(fd, "wb");
+	if (out == Z_NULL) {
+		LOG_ERROR("Could not gzdopen %s", checksumFile.c_str());
+		fclose(f);
+		return;
+	}
+
+	std::stringstream outBuf;
+	outBuf << data->download->hash->toString() << "  "
+		   << std::filesystem::u8path(data->download->name).filename().u8string() << "\n";
+	const std::string outBufStr = outBuf.str();
+
+	for (std::size_t pos = 0; pos < outBufStr.size();) {
+		int written = gzwrite(out, outBufStr.data() + pos, outBufStr.size() - pos);
+		if (written <= 0) {
+			int errnum = Z_OK;
+			const char* errstr = gzerror(out, &errnum);
+			LOG_ERROR("Failed to gzwrite to %s: (%d) %s", checksumFile.c_str(), errnum, errstr);
+			gzclose(out);
+			fclose(f);
+			return;
+		}
+		pos += written;
+	}
+	if (gzclose(out) != Z_OK) {
+		LOG_ERROR("Error in gzclose of %s", checksumFile.c_str());
+	}
+	fclose(f);
+}
+
 static bool handleSuccessTransfer(DownloadData* data, bool http_not_modified,
                                   std::optional<std::string> etag)
 {
@@ -405,12 +451,15 @@ static bool handleSuccessTransfer(DownloadData* data, bool http_not_modified,
 			LOG_ERROR("File %s hash validation failed.", data->download->name.c_str());
 			return false;
 		}
+		if (data->download->write_md5sum) {
+			writeMd5SumFile(data);
+		}
 	}
 	data->download->state = IDownload::STATE_FINISHED;
 	if (data->download->useETags && etag) {
-		// We close file already here not in cleanupDownload so that ETag
-		// computation has a final not tmp file on disk to work with.
-		if (auto f = std::move(data->download->file); !f->Close()) {
+		// We call cleanupDownload here easly so that ETag  computation has a
+		// final not tmp file on disk to work with.
+		if (!cleanupDownload(data)) {
 			return false;
 		}
 		setETag(data->download->name, etag.value());
