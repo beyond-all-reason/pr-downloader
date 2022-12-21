@@ -33,7 +33,8 @@ CSdp::CSdp(std::string shortname_, std::string md5_, std::string name_,
 	memset(cursize_buf, 0, LENGTH_SIZE);
 	const std::string dir =
 		fileSystem->getSpringDir() + PATH_DELIMITER + "packages" + PATH_DELIMITER;
-	sdpPath = dir + md5 + ".sdp";
+	finalSdpPath = dir + md5 + ".sdp";
+	tempSdpPath = finalSdpPath + ".incomplete";
 }
 
 CSdp::CSdp(CSdp&& sdp) = default;
@@ -56,13 +57,19 @@ bool createPoolDirs(const std::string& root)
 
 std::unique_ptr<IDownload> CSdp::parseOrGetDownload()
 {
-	if (!fileSystem->fileExists(sdpPath) || !fileSystem->parseSdp(sdpPath, files)) {
+	for (auto path : {finalSdpPath, tempSdpPath}) {
+		if (!fileSystem->fileExists(path)) {
+			continue;
+		}
+		if (fileSystem->parseSdp(path, files)) {
+			return nullptr;
+		}
+		fileSystem->removeFile(path);
 		files.clear();
-		auto dl = std::make_unique<IDownload>(sdpPath);
-		dl->addMirror(baseUrl + "/packages/" + md5 + ".sdp");
-		return dl;
 	}
-	return nullptr;
+	auto dl = std::make_unique<IDownload>(tempSdpPath);
+	dl->addMirror(baseUrl + "/packages/" + md5 + ".sdp");
+	return dl;
 }
 
 static std::list<IDownload*>
@@ -134,8 +141,9 @@ bool CSdp::Download(std::vector<std::pair<CSdp*, IDownload*>> const& packages)
 			pkg->m_download = dl;
 			if (!pkg->downloadStream()) {
 				LOG_ERROR("Couldn't download files for %s", pkg->md5.c_str());
-				// TODO: It should be oposite, mark as done on success
-				fileSystem->removeFile(pkg->sdpPath);
+				return false;
+			} else if (fileSystem->fileExists(pkg->tempSdpPath) &&
+			           !fileSystem->Rename(pkg->tempSdpPath, pkg->finalSdpPath)) {
 				return false;
 			}
 			dl->state = IDownload::STATE_FINISHED;
@@ -144,8 +152,12 @@ bool CSdp::Download(std::vector<std::pair<CSdp*, IDownload*>> const& packages)
 		if (!downloadHTTP(to_download)) {
 			return false;
 		}
-		for (auto [_, dl] : to_download) {
+		for (auto [pkg, dl] : to_download) {
 			dl->state = IDownload::STATE_FINISHED;
+			if (fileSystem->fileExists(pkg->tempSdpPath) &&
+			    !fileSystem->Rename(pkg->tempSdpPath, pkg->finalSdpPath)) {
+				return false;
+			}
 		}
 	}
 	return true;

@@ -538,6 +538,29 @@ class TestDownloading(unittest.TestCase):
                     msg=f'downloading {path} didn\'t cause failure as expected')
             self.server.clear_resolvers()
 
+    def test_sdp_not_complete_on_failure(self) -> None:
+        repo = self.rapid.add_repo('testrepo')
+        archive = repo.add_archive('pkg:1')
+        archive.add_file('a.txt', b'a')
+        b_file = archive.add_file('b.txt', b'aa')
+        self.rapid.save(self.serving_root)
+
+        path = os.path.join('/testrepo',
+                            b_file.rapid_filename()).replace('\\', '/')
+        self.server.add_resolver(
+            fail_requests_resolver({path: HTTPStatus.NOT_FOUND}))
+        with self.server.serve():
+            self.assertNotEqual(self.call_rapid_download('testrepo:pkg:1'), 0)
+
+        self.assertFalse(
+            os.path.exists(
+                os.path.join(self.dest_root, archive.rapid_filename())))
+        # leaking a bit implementation detail but makes bug in test less likely
+        self.assertTrue(
+            os.path.exists(
+                os.path.join(self.dest_root,
+                             archive.rapid_filename() + '.incomplete')))
+
     def test_downloading_dependencies(self) -> None:
         repo = self.rapid.add_repo('base')
         archive = repo.add_archive('old_stable', 'Base 1.0')
@@ -684,6 +707,8 @@ class TestDownloading(unittest.TestCase):
         self.server.add_resolver(resolver)
         with self.server.serve():
             self.assertEqual(self.call_rapid_download('testrepo:pkg:1'), 0)
+
+        self.assertEqual(retries_left, 0)
 
     def test_no_partial_overrides_to_files(self) -> None:
         repo = self.rapid.add_repo('rep1')

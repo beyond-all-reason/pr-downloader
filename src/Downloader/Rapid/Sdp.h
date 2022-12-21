@@ -105,6 +105,7 @@ private:
 	std::string md5;
 	std::string shortname;
 	std::string baseUrl;
-	std::string sdpPath;
+	std::string tempSdpPath;
+	std::string finalSdpPath;
 	std::vector<std::string> depends;
 };

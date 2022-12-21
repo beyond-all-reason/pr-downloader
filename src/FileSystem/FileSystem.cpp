@@ -156,9 +156,8 @@ bool CFileSystem::parseSdp(const std::string& filename, std::list<FileData>& fil
 	sdpmd5.Final();
 	const std::string filehash = getMD5fromFilename(filename);
 	if (filehash != sdpmd5.toString()) {
-		LOG_ERROR("%s is invalid, deleted (%s vs %s)", filename.c_str(), filehash.c_str(),
+		LOG_ERROR("%s is invalid (%s vs %s)", filename.c_str(), filehash.c_str(),
 		          sdpmd5.toString().c_str());
-		removeFile(filename);
 		return false;
 	}
 	LOG_DEBUG("Parsed %s with %d files", filename.c_str(), (int)files.size());
