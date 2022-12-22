@@ -31,7 +31,6 @@ add_library(Downloader STATIC
 	FileSystem/File.cpp
 	FileSystem/HashGzip.cpp
 	FileSystem/HashMD5.cpp
-	FileSystem/HashSHA1.cpp
 	FileSystem/IHash.cpp
 	Util.cpp
 	Version.cpp

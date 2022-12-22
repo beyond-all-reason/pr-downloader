@@ -8,10 +8,6 @@
 #include <list>
 #include <string>
 
-class HashSHA1;
-class CFile;
-class DownloadData;
-
 class CHttpDownloader : public IDownloader
 {
 public:

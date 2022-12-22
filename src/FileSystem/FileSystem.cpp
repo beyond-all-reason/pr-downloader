@@ -5,7 +5,6 @@
 #include "FileData.h"
 #include "HashGzip.h"
 #include "HashMD5.h"
-#include "HashSHA1.h"
 #include "IHash.h"
 #include "Logger.h"
 #include "SevenZipArchive.h"
