@@ -7,7 +7,6 @@
 #include "CurlWrapper.h"
 #include "FileSystem/File.h"
 #include "FileSystem/FileSystem.h"
-#include "FileSystem/HashSHA1.h"
 #include "IDownloader.h"
 #include "Logger.h"
 #include "Version.h"

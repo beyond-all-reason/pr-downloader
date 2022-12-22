@@ -38,7 +38,6 @@
 #include "FileSystem/File.h"
 #include "FileSystem/FileSystem.h"
 #include "FileSystem/HashMD5.h"
-#include "FileSystem/HashSHA1.h"
 #include "IOThreadPool.h"
 #include "Logger.h"
 #include "Throttler.h"
