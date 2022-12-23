@@ -2,7 +2,6 @@
 
 #pragma once
 
-#include <list>
 #include <memory>
 #include <string>
 #include <unordered_set>
@@ -55,8 +54,8 @@ public:
 	}
 
 	IDownload* m_download = nullptr;
-	std::list<FileData>::iterator list_it;
-	std::list<FileData> files;  // list with all files of an sdp
+	std::vector<FileData>::iterator list_it;
+	std::vector<FileData> files;  // list with all files of an sdp
 	std::unique_ptr<CFile> file_handle;
 	std::string file_name;
 

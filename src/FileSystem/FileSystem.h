@@ -30,7 +30,7 @@ public:
 	/**
 	 * parses the file for a mod and creates
 	 */
-	bool parseSdp(const std::string& filename, std::list<FileData>& files);
+	bool parseSdp(const std::string& filename, std::vector<FileData>& files);
 
 	bool hashFile(IHash* outHash, const std::string& path) const;
 
