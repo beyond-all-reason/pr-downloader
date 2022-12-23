@@ -6,6 +6,7 @@
 #include "Logger.h"
 #include "RapidDownloader.h"
 #include "Sdp.h"
+#include "Tracer.h"
 #include "Util.h"
 
 #include <cassert>
@@ -40,6 +41,7 @@ IDownload* CRepo::getDownload()
 
 bool CRepo::parse()
 {
+	TRACE();
 	assert(!tmpFile.empty());
 	if (tmpFile.empty()) {
 		LOG_DEBUG("tmpfile empty, repo not initialized?");

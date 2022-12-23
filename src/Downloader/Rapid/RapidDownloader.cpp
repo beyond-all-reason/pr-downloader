@@ -6,6 +6,7 @@
 #include "Logger.h"
 #include "Repo.h"
 #include "Sdp.h"
+#include "Tracer.h"
 #include "Util.h"
 
 #include <algorithm>  //std::min
@@ -105,6 +106,7 @@ static std::string ensureRapidUri(std::string_view name)
 bool CRapidDownloader::search(std::list<IDownload*>& result,
                               const std::vector<DownloadSearchItem*>& items)
 {
+	TRACE();
 	std::vector<std::string> to_update;
 	for (auto& item : items) {
 		if (item->found) {
@@ -148,6 +150,7 @@ bool CRapidDownloader::search(std::list<IDownload*>& result,
 
 bool CRapidDownloader::download(std::list<IDownload*>& downloads, int /*max_parallel*/)
 {
+	TRACE();
 	std::list<IDownload*> rapid_downloads;
 	for (auto download : downloads) {
 		if (download->dltype == IDownload::TYP_RAPID) {
@@ -187,6 +190,7 @@ bool CRapidDownloader::setOption(const std::string& key, const std::string& valu
 
 bool CRapidDownloader::UpdateReposGZ()
 {
+	TRACE();
 	std::string tmp;
 	if (!urlToPath(reposgzurl, tmp)) {
 		LOG_ERROR("Invalid path: %s", tmp.c_str());
@@ -270,6 +274,7 @@ bool CRapidDownloader::parse()
 
 bool CRapidDownloader::updateRepos(const std::vector<std::string>& searchstrs)
 {
+	TRACE();
 	LOG_DEBUG("%s", "Updating repos...");
 	if (!UpdateReposGZ()) {
 		return false;

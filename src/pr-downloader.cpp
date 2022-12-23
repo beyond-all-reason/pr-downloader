@@ -3,6 +3,7 @@
 #include "Downloader/IDownloader.h"
 #include "FileSystem/FileSystem.h"
 #include "Logger.h"
+#include "Tracer.h"
 #include "Version.h"
 #include "lib/base64/base64.h"
 #include "lib/md5/md5.h"
@@ -134,6 +135,7 @@ bool search(std::vector<DownloadSearchItem>& items, std::list<IDownload*>& searc
 
 int DownloadSearch(std::vector<DownloadSearchItem>& items)
 {
+	TRACE();
 	IDownloader::freeResult(searchres);
 	downloads.clear();
 	if (!search(items, searchres)) {
@@ -262,6 +264,7 @@ bool addDepends(std::list<IDownload*>& dls)
 
 int DownloadStart()
 {
+	TRACE();
 	std::list<IDownload*> dls;
 	std::list<int>::iterator it;
 	const std::string dldir = fileSystem->getSpringDir();
