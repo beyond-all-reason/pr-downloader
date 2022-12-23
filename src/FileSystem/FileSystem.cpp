@@ -15,7 +15,6 @@
 #include <cstddef>
 #include <cstdio>
 #include <filesystem>
-#include <list>
 #include <memory>
 #include <stdlib.h>
 #include <string.h>
@@ -92,7 +91,7 @@ std::string getMD5fromFilename(const std::string& path)
 	return path.substr(start, end - start);
 }
 
-bool CFileSystem::parseSdp(const std::string& filename, std::list<FileData>& files)
+bool CFileSystem::parseSdp(const std::string& filename, std::vector<FileData>& files)
 {
 	TRACE();
 	char c_name[255];
@@ -418,7 +417,7 @@ bool CFileSystem::removeDir(const std::string& path)
 
 bool CFileSystem::dumpSDP(const std::string& filename)
 {
-	std::list<FileData> files;
+	std::vector<FileData> files;
 	if (!parseSdp(filename, files))
 		return false;
 	LOG_INFO("md5 (filename in pool)           crc32        size filename");
@@ -438,7 +437,7 @@ bool CFileSystem::validateSDP(const std::string& sdpPath)
 		return false;
 	}
 
-	std::list<FileData> files;
+	std::vector<FileData> files;
 	if (!parseSdp(sdpPath, files)) {  // parse downloaded file
 		LOG_ERROR("Removing invalid SDP file: %s", sdpPath.c_str());
 		if (!removeFile(sdpPath)) {

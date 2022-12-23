@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include <list>
 #include <string>
+#include <vector>
 
 class CSdp;
 class CRapidDownloader;
@@ -37,7 +37,7 @@ public:
 private:
 	std::string repourl;
 	CRapidDownloader* rapid;
-	std::list<CSdp*> sdps;
+	std::vector<CSdp*> sdps;
 	std::string tmpFile;
 	std::string shortname;
 };
