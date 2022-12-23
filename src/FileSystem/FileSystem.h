@@ -55,6 +55,9 @@ public:
 	 */
 	static bool createSubdirs(const std::string& path);
 
+	/**
+	 * returns a list of pairs (file path, md5) of all files in pool.
+	 */
 	std::optional<std::vector<std::pair<std::string, HashMD5>>> getPoolFiles();
 
 	/**
