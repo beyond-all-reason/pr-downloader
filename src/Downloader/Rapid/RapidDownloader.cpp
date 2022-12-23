@@ -205,7 +205,6 @@ bool CRapidDownloader::UpdateReposGZ()
 		return true;
 	IDownload dl(path);
 	dl.noCache = true;
-	dl.useETags = true;
 	dl.addMirror(reposgzurl);
 	return httpDownload->download(&dl) && parse();
 }
