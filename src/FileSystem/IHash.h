@@ -27,7 +27,7 @@ public:
 	/**
 	 * return human readable hash string
 	 */
-	virtual const std::string toString(const unsigned char* data = nullptr, int size = 0) const;
+	virtual std::string toString() const = 0;
 	/**
 	 * compare this hash
 	 * @return true, when both hashes are identical
@@ -59,6 +59,11 @@ public:
 
 protected:
 	bool isset = false;
+
+	/**
+	 * return human readable hash string
+	 */
+	static std::string toString(const unsigned char* data, int size);
 
 private:
 	/**

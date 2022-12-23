@@ -34,20 +34,15 @@ bool IHash::compare(const unsigned char* data, int size) const
 	return true;
 }
 
-const std::string IHash::toString(const unsigned char* data, int size) const
+constexpr char hexstr[16] = {'0', '1', '2', '3', '4', '5', '6', '7',
+                             '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
+
+std::string IHash::toString(const unsigned char* data, int size)
 {
-	std::string str;
-	char buf[3];
-	if (data == nullptr) {
-		for (int i = 0; i < getSize(); i++) {
-			snprintf(buf, sizeof(buf), "%.2x", get(i));
-			str.append(buf);
-		}
-	} else {
-		for (int i = 0; i < size; i++) {
-			snprintf(buf, sizeof(buf), "%.2x", data[i]);
-			str.append(buf);
-		}
+	std::string str(size * 2, 0);
+	for (int i = 0; i < size; i++) {
+		str[i * 2] = hexstr[data[i] >> 4];
+		str[i * 2 + 1] = hexstr[data[i] & 0x0f];
 	}
 	return str;
 }
