@@ -697,7 +697,8 @@ class TestDownloading(unittest.TestCase):
 
         def resolver(handler: HTTPHandler) -> tuple[bool, Optional[BinaryIO]]:
             nonlocal retries_left
-            if handler.path.endswith(failing_file.rapid_filename()):
+            if handler.path.endswith(failing_file.rapid_filename().replace(
+                    '\\', '/')):
                 if retries_left > 0:
                     retries_left -= 1
                     handler.send_error(HTTPStatus.INTERNAL_SERVER_ERROR)
@@ -762,7 +763,7 @@ class TestDownloading(unittest.TestCase):
 
         def resolver1(handler: HTTPHandler) -> tuple[bool, Optional[BinaryIO]]:
             nonlocal visited_file
-            if handler.path.endswith(repo.rapid_filename()):
+            if handler.path.endswith(repo.rapid_filename().replace('\\', '/')):
                 visited_file = True
                 self.assertIsNotNone(handler.get_request_etag())
                 self.assertEqual(handler.get_path_etag(),
@@ -786,7 +787,7 @@ class TestDownloading(unittest.TestCase):
 
         def resolver2(handler: HTTPHandler) -> tuple[bool, Optional[BinaryIO]]:
             nonlocal visited_file
-            if handler.path.endswith(repo.rapid_filename()):
+            if handler.path.endswith(repo.rapid_filename().replace('\\', '/')):
                 visited_file = True
                 self.assertIsNone(handler.get_request_etag())
             return False, None
