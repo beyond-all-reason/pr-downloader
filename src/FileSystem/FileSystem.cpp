@@ -8,6 +8,7 @@
 #include "IHash.h"
 #include "Logger.h"
 #include "SevenZipArchive.h"
+#include "Tracer.h"
 #include "Util.h"
 #include "ZipArchive.h"
 
@@ -23,10 +24,11 @@
 #include <zlib.h>
 
 #ifdef _WIN32
+#include <windows.h>
+
 #include <io.h>
 #include <math.h>
 #include <shlobj.h>
-#include <windows.h>
 #ifndef SHGFP_TYPE_CURRENT
 #define SHGFP_TYPE_CURRENT 0
 #endif
@@ -92,6 +94,7 @@ std::string getMD5fromFilename(const std::string& path)
 
 bool CFileSystem::parseSdp(const std::string& filename, std::list<FileData>& files)
 {
+	TRACE();
 	char c_name[255];
 	unsigned char c_md5[16];
 	unsigned char c_crc32[4];
@@ -291,6 +294,7 @@ std::string CFileSystem::getPoolFilename(const std::string& md5str) const
 
 std::optional<std::vector<std::pair<std::string, HashMD5>>> CFileSystem::getPoolFiles()
 try {
+	TRACE();
 	const auto path = std::filesystem::u8path(getSpringDir() + PATH_DELIMITER + "pool");
 	std::vector<std::pair<std::string, HashMD5>> files;
 	for (const std::filesystem::directory_entry& dir_entry :

@@ -34,6 +34,7 @@ add_library(Downloader STATIC
 	FileSystem/IHash.cpp
 	Util.cpp
 	Version.cpp
+	Tracer.cpp
 	lib/base64/base64.cpp
 	${archivessrc}
 	${jsonlibcppsrc}

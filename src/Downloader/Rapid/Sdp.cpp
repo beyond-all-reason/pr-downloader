@@ -20,6 +20,7 @@
 #include "Logger.h"
 #include "RapidDownloader.h"
 #include "Sdp.h"
+#include "Tracer.h"
 #include "Util.h"
 
 CSdp::CSdp(std::string shortname_, std::string md5_, std::string name_,
@@ -43,6 +44,7 @@ CSdp::~CSdp() = default;
 
 bool createPoolDirs(const std::string& root)
 {
+	TRACE();
 	for (int i = 0; i < 256; i++) {
 		char buf[1024];
 		const int len = snprintf(buf, sizeof(buf), "%s%02x%c", root.c_str(), i, PATH_DELIMITER);
@@ -90,8 +92,11 @@ static bool useStreamerDownload()
 
 bool CSdp::Download(std::vector<std::pair<CSdp*, IDownload*>> const& packages)
 {
+	TRACE();
+
 	// Download Sdp packages
 	{
+		TRACE("DownloadSdpPackapes");
 		std::vector<std::unique_ptr<IDownload>> downloads;
 		for (auto [pkg, _] : packages) {
 			if (auto dl = pkg->parseOrGetDownload(); dl != nullptr) {
@@ -118,6 +123,7 @@ bool CSdp::Download(std::vector<std::pair<CSdp*, IDownload*>> const& packages)
 	// Prepare files in Sdp packages for download
 	std::vector<std::pair<CSdp*, IDownload*>> to_download;
 	{
+		TRACE("ComputePoolFilesToFetch");
 		const auto pool_files = fileSystem->getPoolFiles();
 		if (!pool_files) {
 			return false;
@@ -165,6 +171,7 @@ bool CSdp::Download(std::vector<std::pair<CSdp*, IDownload*>> const& packages)
 
 bool CSdp::filterDownloaded(std::unordered_set<std::string> const& downloaded_md5)
 {
+	TRACE();
 	bool need_to_download = false;
 	for (FileData& filedata : files) {  // check which file are available on local
 		                                // disk -> create list of files to download
@@ -367,6 +374,7 @@ static int progress_func(CSdp& sdp, double TotalToDownload, double NowDownloaded
 
 bool CSdp::downloadStream()
 {
+	TRACE();
 	std::string downloadUrl = baseUrl + "/streamer.cgi?" + md5;
 	CurlWrapper curlw;
 
@@ -427,6 +435,7 @@ std::string CSdp::getPoolFileUrl(const std::string& md5s) const
 
 bool CSdp::downloadHTTP(std::vector<std::pair<CSdp*, IDownload*>> const& packages)
 {
+	TRACE();
 	std::unordered_set<std::string> md5_in_queue;
 	std::list<IDownload*> dls;
 	for (auto [pkg, _] : packages) {

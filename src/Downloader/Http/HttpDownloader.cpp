@@ -41,6 +41,7 @@
 #include "IOThreadPool.h"
 #include "Logger.h"
 #include "Throttler.h"
+#include "Tracer.h"
 #include "Util.h"
 
 static size_t WriteMemoryCallback(void* contents, size_t size, size_t nmemb, void* userp)
@@ -202,6 +203,7 @@ bool CHttpDownloader::ParseResult(const std::string& /*name*/, const std::string
 bool CHttpDownloader::search(std::list<IDownload*>& res,
                              const std::vector<DownloadSearchItem*>& items)
 {
+	TRACE();
 	for (auto& item : items) {
 		if (item->found) {
 			continue;
@@ -598,6 +600,8 @@ static unsigned getMaxReqsPerSecLimit()
 
 bool CHttpDownloader::download(std::list<IDownload*>& download, int max_parallel)
 {
+	TRACE();
+
 	// With CURLOPT_BUFFERSIZE = 16KiB, this ends up with a very theoretical
 	// max 250MiB buffered in memory before it's written to disk.
 	IOThreadPool thread_pool(

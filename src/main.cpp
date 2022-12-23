@@ -8,6 +8,7 @@
 
 #include "Downloader/DownloadEnum.h"
 #include "Logger.h"
+#include "Tracer.h"
 #include "Util.h"
 #include "Version.h"
 #include "pr-downloader.h"
@@ -60,6 +61,12 @@ Environment variables:
   PRD_DISABLE_CERT_CHECK=[false]|true
       Allows to disable TLS certificate validation, useful for testing.
 )env";
+
+#ifndef NDEBUG
+	std::cout << R"env(  PRD_ENABLE_TRACING=[false]|true
+      Enable execution tracing.
+)env";
+#endif
 }
 
 void show_results(int count)
@@ -73,6 +80,10 @@ void show_results(int count)
 
 int main(int argc, char** argv)
 try {
+	const char* enable_tracing_env = std::getenv("PRD_ENABLE_TRACING");
+	TracerContext tracer_context(enable_tracing_env != nullptr &&
+	                             std::string(enable_tracing_env) == "true");
+
 	ensureUtf8Argv(&argc, &argv);
 	show_version();
 	if (argc < 2) {
