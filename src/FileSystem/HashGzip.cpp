@@ -77,18 +77,6 @@ void HashGzip::Final()
 	subhash->Final();
 }
 
-int HashGzip::getSize() const
-{
-	return subhash->getSize();
-}
-
-unsigned char HashGzip::get(int pos) const
-{
-	if (error)
-		return 255;
-	return subhash->get(pos);
-}
-
 bool HashGzip::Set(const unsigned char* data, int size)
 {
 	bool ret = subhash->Set(data, size);

@@ -20,11 +20,6 @@ void HashMD5::Final()
 	MD5Final(&mdContext);
 }
 
-int HashMD5::getSize() const
-{
-	return sizeof(mdContext.digest);
-}
-
 unsigned char HashMD5::get(int pos) const
 {
 	assert(pos < (int)sizeof(mdContext.digest));

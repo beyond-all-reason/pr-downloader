@@ -18,7 +18,15 @@ public:
 		return &mdContext.digest[0];
 	}
 
-	int getSize() const override;
+	int getSize() const override
+	{
+		return sizeof(mdContext.digest);
+	}
+
+	std::string toString() const override
+	{
+		return IHash::toString(&mdContext.digest[0], sizeof(mdContext.digest));
+	}
 
 private:
 	MD5_CTX mdContext = {};

@@ -18,8 +18,27 @@ public:
 	void Final() override;
 	void Update(const char* data, const int size) override;
 	bool Set(const unsigned char* data, int size) override;
-	unsigned char get(int pos) const override;
-	int getSize() const override;
+
+	unsigned char get(int pos) const override
+	{
+		if (error) {
+			return 255;
+		}
+		return subhash->get(pos);
+	}
+
+	std::string toString() const override
+	{
+		if (error) {
+			return std::string(getSize(), 'f');
+		}
+		return subhash->toString();
+	}
+
+	int getSize() const override
+	{
+		return subhash->getSize();
+	}
 
 private:
 	std::unique_ptr<IHash> subhash;
