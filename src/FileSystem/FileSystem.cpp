@@ -20,11 +20,13 @@
 #include <string.h>
 #include <string>
 #include <sys/stat.h>
+#include <thread>
 #include <zlib.h>
 
 #ifdef _WIN32
 #include <windows.h>
 
+#include <fileapi.h>
 #include <io.h>
 #include <math.h>
 #include <shlobj.h>
@@ -291,6 +293,94 @@ std::string CFileSystem::getPoolFilename(const std::string& md5str) const
 	       md5str.at(1) + PATH_DELIMITER + md5str.substr(2) + ".gz";
 }
 
+#ifdef _WIN32
+std::optional<std::vector<std::pair<std::string, HashMD5>>> CFileSystem::getPoolFiles()
+{
+	TRACE();
+	std::vector<std::pair<std::string, HashMD5>> files;
+	const std::string basePath = getSpringDir() + PATH_DELIMITER + "pool" + PATH_DELIMITER;
+	const std::wstring baseWPath = s2ws(basePath);
+
+	const size_t num_threads = std::min(std::thread::hardware_concurrency(), 8u);
+	decltype(files) files_parts[num_threads];
+	bool failed[num_threads];
+	std::thread threads[num_threads];
+
+	for (int tid = 0; tid < num_threads; ++tid) {
+		threads[tid] = std::thread([tid, num_threads, &files = files_parts[tid],
+		                            &failed = failed[tid], &basePath, &baseWPath]() {
+			for (int i = tid; i < 256; i += num_threads) {
+				failed = false;
+				std::string firstByte;
+				{
+					char buf[10];
+					sprintf(buf, "%02x", i);
+					firstByte = buf;
+				}
+
+				wchar_t dir[MAX_PATH];
+				_snwprintf_s(dir, _TRUNCATE, L"%s%02x/*", baseWPath.c_str(), i);
+
+				WIN32_FIND_DATAW fileInfo;
+				HANDLE searchHandle =
+					FindFirstFileExW(dir, FindExInfoBasic, &fileInfo, FindExSearchNameMatch, NULL,
+				                     FIND_FIRST_EX_LARGE_FETCH);
+
+				if (searchHandle == INVALID_HANDLE_VALUE) {
+					if (GetLastError() == ERROR_PATH_NOT_FOUND) {
+						continue;
+					}
+					LOG_ERROR("Failed start file listing: code %d", GetLastError());
+					failed = true;
+					return;
+				}
+
+				do {
+					std::string filename = ws2s(fileInfo.cFileName);
+					constexpr int filenameLen = 33;  // like: 0235f418e51337469e445417853f76.gz
+					if (filename.size() != filenameLen) {
+						continue;
+					}
+					HashMD5 md5;
+					if (!md5.IHash::Set(firstByte + filename.substr(0, filenameLen - 3))) {
+						LOG_WARN("Invalid file name, ignoring: %s/%s", firstByte.c_str(),
+						         filename.c_str());
+						continue;
+					}
+					files.emplace_back(basePath + firstByte + PATH_DELIMITER + filename, md5);
+				} while (FindNextFileW(searchHandle, &fileInfo) != 0);
+
+				if (GetLastError() != ERROR_NO_MORE_FILES) {
+					LOG_ERROR("Failed list files in directory: code %d", GetLastError());
+					failed = true;
+					return;
+				}
+
+				if (FindClose(searchHandle) == 0) {
+					LOG_ERROR("Failed to close search directory: code %d", GetLastError());
+					failed = true;
+					return;
+				}
+			}
+		});
+	}
+	size_t total_files_size = 0;
+	for (int tid = 0; tid < num_threads; ++tid) {
+		threads[tid].join();
+		total_files_size += files_parts[tid].size();
+	}
+	files.reserve(total_files_size);
+	for (int tid = 0; tid < num_threads; ++tid) {
+		if (failed[tid]) {
+			return std::nullopt;
+		}
+		files.insert(files.end(), std::make_move_iterator(files_parts[tid].begin()),
+		             std::make_move_iterator(files_parts[tid].end()));
+	}
+
+	return files;
+}
+#else
 std::optional<std::vector<std::pair<std::string, HashMD5>>> CFileSystem::getPoolFiles()
 try {
 	TRACE();
@@ -314,6 +404,7 @@ try {
 	LOG_ERROR("Failed to read pool files: %s", ex.what());
 	return std::nullopt;
 }
+#endif
 
 bool CFileSystem::validatePool(bool deletebroken)
 {
