@@ -634,6 +634,21 @@ class TestDownloading(unittest.TestCase):
             self.assertEqual(self.call_rapid_download('repo:pkg'), 0)
             self.assertTrue(self.verify_downloaded_rapid('repo:pkg'))
 
+    def test_sdp_download_all_pool_files_present(self) -> None:
+        repo = self.rapid.add_repo('repo')
+        archive = repo.add_archive('pkg:1')
+        archive.add_file('a.txt', b'a')
+        archive.add_file('b.txt', b'b')
+        archive = repo.add_archive('pkg:2')
+        archive.add_file('a.txt', b'a')
+        self.rapid.save(self.serving_root)
+
+        with self.server.serve():
+            self.assertEqual(self.call_rapid_download('repo:pkg:1'), 0)
+            self.assertTrue(self.verify_downloaded_rapid('repo:pkg:1'))
+            self.assertEqual(self.call_rapid_download('repo:pkg:2'), 0)
+            self.assertTrue(self.verify_downloaded_rapid('repo:pkg:2'))
+
     def test_io_error_fails_download(self) -> None:
         repo = self.rapid.add_repo('repo')
         archive = repo.add_archive('pkg')

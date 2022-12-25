@@ -148,9 +148,6 @@ bool CSdp::Download(std::vector<std::pair<CSdp*, IDownload*>> const& packages)
 			if (!pkg->downloadStream()) {
 				LOG_ERROR("Couldn't download files for %s", pkg->md5.c_str());
 				return false;
-			} else if (fileSystem->fileExists(pkg->tempSdpPath) &&
-			           !fileSystem->Rename(pkg->tempSdpPath, pkg->finalSdpPath)) {
-				return false;
 			}
 			dl->state = IDownload::STATE_FINISHED;
 		}
@@ -160,12 +157,16 @@ bool CSdp::Download(std::vector<std::pair<CSdp*, IDownload*>> const& packages)
 		}
 		for (auto [pkg, dl] : to_download) {
 			dl->state = IDownload::STATE_FINISHED;
-			if (fileSystem->fileExists(pkg->tempSdpPath) &&
-			    !fileSystem->Rename(pkg->tempSdpPath, pkg->finalSdpPath)) {
-				return false;
-			}
 		}
 	}
+
+	for (auto [pkg, dl] : packages) {
+		if (dl->state == IDownload::STATE_FINISHED && fileSystem->fileExists(pkg->tempSdpPath) &&
+		    !fileSystem->Rename(pkg->tempSdpPath, pkg->finalSdpPath)) {
+			return false;
+		}
+	}
+
 	return true;
 }
 
