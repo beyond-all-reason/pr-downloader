@@ -22,6 +22,7 @@
 #include <sys/stat.h>
 #include <thread>
 #include <zlib.h>
+#include <array>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -301,10 +302,12 @@ std::optional<std::vector<std::pair<std::string, HashMD5>>> CFileSystem::getPool
 	const std::string basePath = getSpringDir() + PATH_DELIMITER + "pool" + PATH_DELIMITER;
 	const std::wstring baseWPath = s2ws(basePath);
 
-	const size_t num_threads = std::min(std::thread::hardware_concurrency(), 8u);
-	decltype(files) files_parts[num_threads];
-	bool failed[num_threads];
-	std::thread threads[num_threads];
+	static constexpr uint32_t MAX_THREADS = 8;
+	const size_t num_threads = std::min(std::thread::hardware_concurrency(), MAX_THREADS);
+
+	std::array<decltype(files), MAX_THREADS> files_parts;
+	std::array<bool, MAX_THREADS> failed;
+	std::array<std::thread, MAX_THREADS> threads;
 
 	for (int tid = 0; tid < num_threads; ++tid) {
 		threads[tid] = std::thread([tid, num_threads, &files = files_parts[tid],

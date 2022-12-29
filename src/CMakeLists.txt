@@ -2,7 +2,9 @@ add_subdirectory(lib)
 
 if(PRD_ARCHIVE_SUPPORT)
 	set(archivessrc FileSystem/SevenZipArchive.cpp FileSystem/ZipArchive.cpp)
-	set(archiveslib pr-7z)
+	if(NOT MSVC)
+		set(archiveslib pr-7z)
+	endif()
 	add_definitions(-DARCHIVE_SUPPORT)
 endif ()
 
