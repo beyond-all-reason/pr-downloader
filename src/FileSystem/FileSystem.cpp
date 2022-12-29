@@ -12,6 +12,7 @@
 #include "Util.h"
 #include "ZipArchive.h"
 
+#include <array>
 #include <cstddef>
 #include <cstdio>
 #include <filesystem>
@@ -22,7 +23,6 @@
 #include <sys/stat.h>
 #include <thread>
 #include <zlib.h>
-#include <array>
 
 #ifdef _WIN32
 #include <windows.h>
