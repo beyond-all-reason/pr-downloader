@@ -10,8 +10,8 @@
 #include <variant>
 #include <vector>
 
-#include <readerwritercircularbuffer.h>
-#include <readerwriterqueue.h>
+#include <readerwriterqueue/readerwritercircularbuffer.h>
+#include <readerwriterqueue/readerwriterqueue.h>
 
 // Thread pool. Interface to queue work and evaluate results is not thread safe,
 // all work needs to be submitted from a single thread.

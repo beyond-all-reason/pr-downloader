@@ -1,0 +1,35 @@
+{
+  "name": "pr-downloader",
+  "dependencies": [
+    "jsoncpp",
+    {
+      "name": "curl",
+      "default-features": false,
+      "features": ["http2", "openssl"]
+    },
+    "readerwriterqueue",
+    "zlib",
+    {
+      "name": "minizip",
+      "default-features": false
+    }
+  ],
+  "features": {
+    "rapidtools": {
+      "description": "Compile Rapid Tools",
+      "dependencies": [
+        "lua51",
+        {
+          "name": "libgit2",
+          "default-features": false,
+          "features": ["pcre2"]
+        },
+        "libzip"
+      ]
+    },
+    "tests": {
+      "description": "Compile Tests",
+      "dependencies": ["boost-test"]
+    }
+  }
+}

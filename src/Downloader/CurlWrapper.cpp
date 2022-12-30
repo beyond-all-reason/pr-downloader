@@ -36,7 +36,7 @@ static void ConfigureCertificates()
 	certFile = std::getenv("SSL_CERT_FILE");
 	certDir = std::getenv("SSL_CERT_DIR");
 
-#if defined(__linux__) && defined(PRD_CURL_SEARCH_CERTS)
+#if defined(__linux__)
 	// This code is needed because curl library can be statically linked and then
 	// the default, determined during build, certificate location can be
 	// incorrect, see https://curl.se/mail/lib-2022-05/0038.html for more details.

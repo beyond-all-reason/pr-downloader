@@ -1,0 +1,8 @@
+WINEPATH="/usr/lib/gcc/x86_64-w64-mingw32/10-posix/;/usr/x86_64-w64-mingw32/lib/" wine64 ./src/pr-downloader.exe --download-game byar:test
+
+
+Windows:
+
+Install powershell: https://learn.microsoft.com/en-us/powershell/scripting/install/install-debian?view=powershell-7.3
+
+cmake .. -DCMAKE_COLOR_DIAGNOSTICS=ON -DCMAKE_TOOLCHAIN_FILE=../../vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=Release -DPRD_TESTS=ON -DVCPKG_TARGET_TRIPLET=x64-mingw-dynamic -DVCPKG_HOST_TRIPLET=x64-mingw-dynamic -DVCPKG_CHAINLOAD_TOOLCHAIN_FILE=/home/p2004a/Workspace/BAR/spring/toolchain/gcc_x86_64-pc-windows-gnu.cmake -G Ninja

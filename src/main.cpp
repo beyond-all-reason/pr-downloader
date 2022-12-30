@@ -18,12 +18,13 @@ void show_version()
 	LOG("pr-downloader %s (%s)\n", getVersion(), platformToString(PRD_CURRENT_PLATFORM));
 }
 
-const static std::array<std::tuple<std::string, bool, std::string>, 12> opts_array = {{
+const static std::array<std::tuple<std::string, bool, std::string>, 13> opts_array = {{
 	{"help", false, "Print this help message"},
 	{"version", false, "Show version of pr-downloader and quit"},
 	{"filesystem-writepath", true, "Set the directory with data, defaults to current dir"},
 	{"download-game", true,
      "Download games by name or rapid tag, eg. 'GG 1.2', 'gg:test', 'rapid://gg:test'"},
+	{"rapid-download", true, "Alias to --download-game"},
 	{"download-map", true, "Download maps by name"},
 	{"download-engine", true, "Download engines by version"},
 	{"rapid-validate", false, "Validates correctness of files in rapid pool"},
@@ -143,9 +144,10 @@ try {
 	}
 
 	std::vector<DownloadSearchItem> items;
-	for (auto [arg, cat] : std::array<std::pair<std::string, DownloadEnum::Category>, 3>{
+	for (auto [arg, cat] : std::array<std::pair<std::string, DownloadEnum::Category>, 4>{
 			 {{"download-map", DownloadEnum::CAT_MAP},
 	          {"download-game", DownloadEnum::CAT_GAME},
+	          {"rapid-download", DownloadEnum::CAT_GAME},
 	          {"download-engine", DownloadEnum::CAT_ENGINE}}}) {
 		if (auto it = args.find(arg); it != args.end()) {
 			for (auto val : it->second) {
