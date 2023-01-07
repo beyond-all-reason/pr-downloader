@@ -565,7 +565,6 @@ bool CFileSystem::validateSDP(const std::string& sdpPath)
 bool CFileSystem::extractEngine(const std::string& filename, const std::string& version,
                                 const std::string& platform)
 {
-#ifdef ARCHIVE_SUPPORT
 	const std::string output = getSpringDir() + PATH_DELIMITER + "engine" + PATH_DELIMITER +
 	                           platform + PATH_DELIMITER + CFileSystem::EscapeFilename(version);
 	if (!extract(filename, output)) {
@@ -579,15 +578,10 @@ bool CFileSystem::extractEngine(const std::string& filename, const std::string& 
 		return removeFile(cfg);
 	}
 	return true;
-#else
-	LOG_ERROR("no archive support!");
-	return false;
-#endif
 }
 
 bool CFileSystem::extract(const std::string& filename, const std::string& dstdir, bool overwrite)
 {
-#ifdef ARCHIVE_SUPPORT
 	LOG_INFO("Extracting %s to %s", filename.c_str(), dstdir.c_str());
 	const int len = filename.length();
 	IArchive* archive;
@@ -658,10 +652,6 @@ bool CFileSystem::extract(const std::string& filename, const std::string& dstdir
 	delete archive;
 	LOG_INFO("done");
 	return true;
-#else
-	LOG_ERROR("no archive support!");
-	return false;
-#endif
 }
 
 bool CFileSystem::Rename(const std::string& source, const std::string& destination)
