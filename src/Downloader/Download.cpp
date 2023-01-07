@@ -5,6 +5,7 @@
 #include "FileSystem/IHash.h"
 #include "Logger.h"
 
+#include <cstdint>
 #include <list>
 #include <stdio.h>
 #include <string>
@@ -44,14 +45,14 @@ bool IDownload::addDepend(const std::string& depend)
 	return true;
 }
 
-unsigned int IDownload::getProgress() const
+uint64_t IDownload::getProgress() const
 {
 	if (dltype == TYP_RAPID || dltype == TYP_HTTP)
 		return progress;
 	return 0;
 }
 
-void IDownload::updateProgress(unsigned int new_progress)
+void IDownload::updateProgress(uint64_t new_progress)
 {
 	progress = new_progress;
 }

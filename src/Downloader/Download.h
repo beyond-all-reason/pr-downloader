@@ -6,6 +6,7 @@
 #include "FileSystem/File.h"
 #include "FileSystem/IHash.h"
 #include "Rapid/Sdp.h"
+#include <cstdint>
 #include <list>
 #include <map>
 #include <memory>
@@ -60,14 +61,14 @@ public:
 	/**
 	 * file size
 	 */
-	int size = -1;
+	int64_t size = -1;
 
 	/**
 	 * Approximate file size, for cases where real size isn't entirely
 	 * known, e.g. when downloading compressed files from spd.
 	 * We default it to 1, as a simple file counter.
 	 */
-	int approx_size = 1;
+	uint64_t approx_size = 1;
 
 	std::map<CSdp*, uint64_t> rapid_size;
 	std::map<CSdp*, uint64_t> map_rapid_progress;
@@ -80,8 +81,8 @@ public:
 	/**
 	 * returns number of bytes downloaded
 	 */
-	unsigned int getProgress() const;
-	void updateProgress(unsigned int progress);
+	uint64_t getProgress() const;
+	void updateProgress(uint64_t progress);
 	std::string version;
 
 	bool validateTLS = true;
@@ -89,7 +90,7 @@ public:
 	bool useETags = false;
 
 private:
-	int progress = 0;
+	uint64_t progress = 0;
 	std::vector<std::string> mirrors;
 	static void initCategories();
 };
