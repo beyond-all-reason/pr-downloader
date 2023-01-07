@@ -1,0 +1,10 @@
+{
+    "registries": [
+        {
+            "kind": "git",
+            "repository": "https://github.com/mathisloge/vcpkg-registry.git",
+            "baseline": "f65530375ff334fd3152b7d5e2651d0b54165629",
+            "packages": ["lua51"]
+        }
+    ]
+}

@@ -1,0 +1,23 @@
+{
+  "name": "pr-downloader",
+  "dependencies": [
+    "jsoncpp",
+    {
+      "name": "curl",
+      "default-features": false,
+      "features": ["http2", "openssl"]
+    },
+    "readerwriterqueue",
+    "zlib",
+    {
+      "name": "minizip",
+      "default-features": false
+    }
+  ],
+  "features": {
+    "tests": {
+      "description": "Compile Tests",
+      "dependencies": ["boost-test"]
+    }
+  }
+}
