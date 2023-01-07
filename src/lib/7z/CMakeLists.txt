@@ -55,3 +55,5 @@ endif ()
 target_include_directories(7zip
   INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 )
+
+set_target_properties(7zip PROPERTIES POSITION_INDEPENDENT_CODE ON)

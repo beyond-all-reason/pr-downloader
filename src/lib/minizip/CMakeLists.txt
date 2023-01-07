@@ -1,20 +1,15 @@
-# Spring supplied CMake build file
+find_package(ZLIB REQUIRED)
 
-SET(miniZipSources
-	unzip.c
-	zip.c
-	ioapi.c
-)
-
-FIND_PACKAGE(ZLIB REQUIRED)
-
+add_library(pr-minizip
+    unzip.c
+    zip.c
+    ioapi.c)
+target_link_libraries(pr-minizip PUBLIC ZLIB::ZLIB)
+set_target_properties(pr-minizip PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_compile_definitions(pr-minizip PRIVATE -DNOCRYPT -DNOUNCRYPT)
 if(WIN32)
-	add_definitions(-DUNICODE -D_UNICODE)
-endif ()
-add_definitions(-DNOCRYPT -DNOUNCRYPT)
-
-ADD_LIBRARY(pr-minizip STATIC EXCLUDE_FROM_ALL ${miniZipSources})
-INCLUDE_DIRECTORIES(${ZLIB_INCLUDE_DIR})
-TARGET_LINK_LIBRARIES(pr-minizip ${ZLIB_LIBRARY})
-SET_TARGET_PROPERTIES(pr-minizip PROPERTIES COMPILE_FLAGS "${PIC_FLAG}")
-
+    target_compile_definitions(pr-minizip PRIVATE -DUNICODE -D_UNICODE)
+endif()
+target_include_directories(pr-minizip
+  INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/..>
+)
