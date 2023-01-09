@@ -119,8 +119,8 @@ CurlWrapper::CurlWrapper()
 	// then its aborted
 	curl_easy_setopt(handle, CURLOPT_LOW_SPEED_LIMIT, 10);
 	curl_easy_setopt(handle, CURLOPT_LOW_SPEED_TIME, 30);
-	curl_easy_setopt(handle, CURLOPT_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
-	curl_easy_setopt(handle, CURLOPT_REDIR_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
+	curl_easy_setopt(handle, CURLOPT_PROTOCOLS_STR, "http,https");
+	curl_easy_setopt(handle, CURLOPT_REDIR_PROTOCOLS_STR, "http,https");
 	curl_easy_setopt(handle, CURLOPT_USERAGENT, getAgent());
 	curl_easy_setopt(handle, CURLOPT_FAILONERROR, true);
 	curl_easy_setopt(handle, CURLOPT_FOLLOWLOCATION, 1);

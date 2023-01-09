@@ -41,5 +41,5 @@ public:
 	bool io_failure = false;  // Used by IO threads
 	bool* abort_download = nullptr;
 
-	void updateProgress(double total, double done);
+	void updateProgress(int64_t total, int64_t done);
 };

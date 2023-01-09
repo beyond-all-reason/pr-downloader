@@ -343,13 +343,11 @@ static size_t write_streamed_data(const void* buf, size_t size, size_t nmemb, CS
 /** *
         draw a nice download status-bar
 */
-static int progress_func(CSdp& sdp, double TotalToDownload, double NowDownloaded,
-                         double TotalToUpload, double NowUploaded)
+static int progress_func(CSdp& sdp, curl_off_t TotalToDownload, curl_off_t NowDownloaded,
+                         curl_off_t, curl_off_t)
 {
 	if (IDownloader::AbortDownloads())
 		return -1;
-	(void)TotalToUpload;
-	(void)NowUploaded;  // remove unused warning
 	sdp.m_download->rapid_size[&sdp] = TotalToDownload;
 	sdp.m_download->map_rapid_progress[&sdp] = NowDownloaded;
 	uint64_t total = 0;
@@ -412,8 +410,8 @@ bool CSdp::downloadStream()
 	curl_easy_setopt(curlw.GetHandle(), CURLOPT_POSTFIELDS, &dest[0]);
 	curl_easy_setopt(curlw.GetHandle(), CURLOPT_POSTFIELDSIZE, destlen);
 	curl_easy_setopt(curlw.GetHandle(), CURLOPT_NOPROGRESS, 0L);
-	curl_easy_setopt(curlw.GetHandle(), CURLOPT_PROGRESSFUNCTION, progress_func);
-	curl_easy_setopt(curlw.GetHandle(), CURLOPT_PROGRESSDATA, this);
+	curl_easy_setopt(curlw.GetHandle(), CURLOPT_XFERINFOFUNCTION, progress_func);
+	curl_easy_setopt(curlw.GetHandle(), CURLOPT_XFERINFODATA, this);
 
 	res = curl_easy_perform(curlw.GetHandle());
 

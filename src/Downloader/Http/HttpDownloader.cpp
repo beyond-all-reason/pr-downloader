@@ -56,7 +56,8 @@ static size_t WriteMemoryCallback(void* contents, size_t size, size_t nmemb, voi
 	return realsize;
 }
 
-static int progress_func(DownloadData* data, double total, double done, double, double)
+static int progress_func(DownloadData* data, curl_off_t total, curl_off_t done, curl_off_t,
+                         curl_off_t)
 {
 	if (IDownloader::AbortDownloads()) {
 		return -1;
@@ -78,8 +79,8 @@ bool CHttpDownloader::DownloadUrl(const std::string& url, std::string& res)
 	curl_easy_setopt(curlw.GetHandle(), CURLOPT_URL, url.c_str());
 	curl_easy_setopt(curlw.GetHandle(), CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
 	curl_easy_setopt(curlw.GetHandle(), CURLOPT_WRITEDATA, (void*)&res);
-	curl_easy_setopt(curlw.GetHandle(), CURLOPT_PROGRESSDATA, &d);
-	curl_easy_setopt(curlw.GetHandle(), CURLOPT_PROGRESSFUNCTION, progress_func);
+	curl_easy_setopt(curlw.GetHandle(), CURLOPT_XFERINFODATA, &d);
+	curl_easy_setopt(curlw.GetHandle(), CURLOPT_XFERINFOFUNCTION, progress_func);
 	curl_easy_setopt(curlw.GetHandle(), CURLOPT_NOPROGRESS, 0L);
 
 	curl_easy_setopt(curlw.GetHandle(), CURLOPT_VERBOSE, 1L);
@@ -310,8 +311,8 @@ static bool setupDownload(CURLM* curlm, DownloadData* piece)
 	curl_easy_setopt(curle, CURLOPT_WRITEFUNCTION, multi_write_data);
 	curl_easy_setopt(curle, CURLOPT_WRITEDATA, piece);
 	curl_easy_setopt(curle, CURLOPT_NOPROGRESS, 0L);
-	curl_easy_setopt(curle, CURLOPT_PROGRESSDATA, piece);
-	curl_easy_setopt(curle, CURLOPT_PROGRESSFUNCTION, progress_func);
+	curl_easy_setopt(curle, CURLOPT_XFERINFODATA, piece);
+	curl_easy_setopt(curle, CURLOPT_XFERINFOFUNCTION, progress_func);
 	curl_easy_setopt(curle, CURLOPT_URL, piece->mirror.c_str());
 	curl_easy_setopt(curle, CURLOPT_PIPEWAIT, 1L);
 	curl_easy_setopt(curle, CURLOPT_BUFFERSIZE, 16384);

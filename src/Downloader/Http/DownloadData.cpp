@@ -12,7 +12,7 @@ DownloadData::DownloadData(std::optional<IOThreadPool::Handle> handle)
 {
 }
 
-void DownloadData::updateProgress(double total, double done)
+void DownloadData::updateProgress(int64_t total, int64_t done)
 {
 	if (data_pack != nullptr) {
 		// Because we can have only approximate size, we map real size

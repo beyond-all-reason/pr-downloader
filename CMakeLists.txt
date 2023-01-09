@@ -33,7 +33,7 @@ if(UNIX)
     pkg_check_modules(libcurl REQUIRED IMPORTED_TARGET libcurl>=7.84)
     set(CURL_TARGET PkgConfig::libcurl)
 else()
-    find_package(CURL 7.84 REQUIRED)
+    find_package(CURL 7.85 REQUIRED)
     set(CURL_TARGET CURL::libcurl)
 endif()
 
