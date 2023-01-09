@@ -62,10 +62,15 @@ private:
 
 #define TRACE_NAME(x, y) x##y
 #define TRACE_NAME2(x, y) TRACE_NAME(x, y)
-#define VA_ARGS(...) , ##__VA_ARGS__
+#ifdef _MSC_VER
+#define TRACE(...) \
+	ScopeTrace TRACE_NAME2(_tracer, __COUNTER__)(__FILE__, __LINE__, __FUNCTION__, ##__VA_ARGS__)
+#else
 #define TRACE(...)                                                   \
 	ScopeTrace TRACE_NAME2(_tracer, __COUNTER__)(__FILE__, __LINE__, \
-	                                             __FUNCTION__ VA_ARGS(__VA_ARGS__))
+	                                             __FUNCTION__ __VA_OPT__(, ) __VA_ARGS__)
+#endif
+
 
 #define TRACEP(tag) tracePoint(__FILE__, __LINE__, __FUNCTION__, tag)
 
