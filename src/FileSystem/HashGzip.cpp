@@ -59,6 +59,7 @@ void HashGzip::Update(const char* data, const int size)
 				return;
 			case Z_STREAM_END:
 				stream_done = true;
+				[[fallthrough]];
 			case Z_OK:
 				subhash->Update(reinterpret_cast<char*>(out), out_size - strm.avail_out);
 				break;

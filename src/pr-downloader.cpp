@@ -114,7 +114,7 @@ bool search(std::vector<DownloadSearchItem>& items, std::list<IDownload*>& searc
 			case DownloadEnum::CAT_COUNT:
 			case DownloadEnum::CAT_NONE:
 				rapid_search.push_back(&item);
-				// fallback
+				[[fallthrough]];
 			case DownloadEnum::CAT_MAP:
 			case DownloadEnum::CAT_ENGINE_LINUX:
 			case DownloadEnum::CAT_ENGINE_LINUX64:

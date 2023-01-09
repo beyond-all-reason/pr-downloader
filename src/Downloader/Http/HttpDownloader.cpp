@@ -529,6 +529,7 @@ static bool processMessages(CURLM* curlm, std::vector<DownloadData*>* to_retry, 
 			case CURLE_QUIC_CONNECT_ERROR:
 			case CURLE_HTTP_RETURNED_ERROR:
 				retry = true;
+				[[fallthrough]];
 			default:
 				++stats->num_errors;
 				curl_easy_getinfo(msg->easy_handle, CURLINFO_RESPONSE_CODE, &http_code);
