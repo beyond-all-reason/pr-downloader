@@ -42,11 +42,10 @@ set_source_files_properties(Version.cpp PROPERTIES COMPILE_DEFINITIONS "PR_DOWNL
 
 target_link_libraries(pr-downloader
     PUBLIC
-        ${JSONCPP_TARGET}
-        ${CURL_TARGET}
-        ${WIN32LIBS}
+        prd::jsoncpp
+        prd::libcurl
         ZLIB::ZLIB
-        ${MINIZIP_TARGET}
+        prd::minizip
         pr-md5
         pr-sha1
         7zip
