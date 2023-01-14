@@ -43,7 +43,7 @@ find_package(ZLIB REQUIRED)
 # jsoncpp
 if(UNIX)
     find_package(PkgConfig REQUIRED)
-    pkg_check_modules(jsoncpp IMPORTED_TARGET jsoncpp)
+    pkg_check_modules(jsoncpp IMPORTED_TARGET GLOBAL jsoncpp)
     if(jsoncpp_FOUND)
         add_library(prd::jsoncpp ALIAS PkgConfig::jsoncpp)
     endif()
