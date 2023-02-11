@@ -16,6 +16,7 @@
 #include <cstddef>
 #include <cstdio>
 #include <filesystem>
+#include <limits>
 #include <memory>
 #include <stdlib.h>
 #include <string.h>
@@ -674,7 +675,7 @@ std::string CFileSystem::DirName(const std::string& path)
 }
 
 #ifdef _WIN32
-long CFileSystem::FiletimeToTimestamp(const _FILETIME& time)
+time_t CFileSystem::FiletimeToTimestamp(const _FILETIME& time)
 {
 	LARGE_INTEGER date, adjust;
 	date.HighPart = time.dwHighDateTime;
@@ -707,48 +708,36 @@ std::string CFileSystem::EscapeFilename(const std::string& str)
 	return s;
 }
 
-unsigned long CFileSystem::getMBsFree(const std::string& path)
+uint64_t CFileSystem::getMBsFree(const std::string& path)
 {
-#ifdef _WIN32
-	ULARGE_INTEGER freespace;
-	BOOL res = GetDiskFreeSpaceExW(s2ws(path).c_str(), &freespace, nullptr, nullptr);
-	if (!res) {
-		LOG_ERROR("Error getting free disk space on %s: code %d", path.c_str(), GetLastError());
+	std::error_code ec;
+	auto sp = std::filesystem::space(std::filesystem::u8path(path), ec);
+	if (ec) {
+		LOG_ERROR("Error getting free disk space on %s: %s", path.c_str(), ec.message().c_str());
 		return 0;
 	}
-	return freespace.QuadPart / (1024 * 1024);
-#else
-	struct statvfs st;
-	const int ret = statvfs(path.c_str(), &st);
-	if (ret != 0) {
-		const char* errstr = strerror(errno);
-		LOG_ERROR("Error getting free disk space on %s: %s", path.c_str(), errstr);
-		return 0;
-	}
-	if (st.f_frsize) {
-		return ((uint64_t)st.f_frsize * st.f_bavail) / (1024 * 1024);
-	}
-	return ((uint64_t)st.f_bsize * st.f_bavail) / (1024 * 1024);
-#endif
+	return sp.available / (1024 * 1024);
 }
 
-
-long CFileSystem::getFileSize(const std::string& path)
+int64_t CFileSystem::getFileSize(const std::string& path)
 {
-	FILE* f = propen(path.c_str(), "rb");
-	if (f == nullptr)
+	std::error_code ec;
+	std::uintmax_t size = std::filesystem::file_size(std::filesystem::u8path(path), ec);
+	if (ec) {
+		LOG_ERROR("Failed to get size of %s: %s", path.c_str(), ec.message().c_str());
 		return -1;
-	fseek(f, 0, SEEK_END);
-	long size = ftell(f);
-	fclose(f);
-	return size;
+	} else if (size > static_cast<std::uintmax_t>(std::numeric_limits<int64_t>::max())) {
+		LOG_ERROR("File size of %s doesn't fit in int64_t", path.c_str());
+		return -1;
+	}
+	return static_cast<int64_t>(size);
 }
 
-long CFileSystem::getFileTimestamp(const std::string& path)
+int64_t CFileSystem::getFileTimestamp(const std::string& path)
 {
 #if defined(__WIN32__) || defined(_MSC_VER)
-	struct _stat sb;
-	int res = _wstat(s2ws(path).c_str(), &sb);
+	struct __stat64 sb;
+	int res = _wstat64(s2ws(path).c_str(), &sb);
 #else
 	struct stat sb;
 	int res = stat(path.c_str(), &sb);

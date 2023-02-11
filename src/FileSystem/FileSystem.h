@@ -129,7 +129,7 @@ public:
 	static FILE* propen(const std::string& filename, const std::string& mode);
 
 #ifdef _WIN32
-	long FiletimeToTimestamp(const _FILETIME& time);
+	time_t FiletimeToTimestamp(const _FILETIME& time);
 	void TimestampToFiletime(const time_t t, _FILETIME& pft);
 #endif
 
@@ -140,11 +140,12 @@ public:
 	 * returns the directory for the path, i.e: dir/filename -> dir
 	 */
 	static std::string DirName(const std::string& path);
-	static unsigned long getMBsFree(const std::string& path);
 
-	static long getFileSize(const std::string& path);
+	static uint64_t getMBsFree(const std::string& path);
 
-	static long getFileTimestamp(const std::string& path);
+	static int64_t getFileSize(const std::string& path);
+
+	static int64_t getFileTimestamp(const std::string& path);
 
 	static int dupFileFD(FILE* f);
 

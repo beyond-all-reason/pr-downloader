@@ -9,6 +9,8 @@
 #include "lib/md5/md5.h"
 
 #include <assert.h>
+#include <cinttypes>
+#include <cstdint>
 #include <cstdlib>
 #include <stdlib.h>
 #include <string.h>
@@ -268,8 +270,8 @@ int DownloadStart()
 	std::list<IDownload*> dls;
 	std::list<int>::iterator it;
 	const std::string dldir = fileSystem->getSpringDir();
-	const unsigned long MBsFree = CFileSystem::getMBsFree(dldir);
-	unsigned long dlsize = 0;
+	const uint64_t MBsFree = CFileSystem::getMBsFree(dldir);
+	uint64_t dlsize = 0;
 	for (it = downloads.begin(); it != downloads.end(); ++it) {
 		IDownload* dl = GetIDownloadByID(searchres, *it);
 		if (dl->size > 0) {
@@ -282,11 +284,11 @@ int DownloadStart()
 	}
 	// at least 1024MB free disk space are required (else fragmentation will make file access way to
 	// slow!)
-	const unsigned long MBsNeeded = (dlsize / (1024 * 1024)) + 1024;
+	const uint64_t MBsNeeded = (dlsize / (1024 * 1024)) + 1024;
 
 	if (MBsFree < MBsNeeded) {
-		LOG_ERROR("Insuffcient free disk space (%u MiB) on %s: %u MiB needed", MBsFree,
-		          dldir.c_str(), MBsNeeded);
+		LOG_ERROR("Insuffcient free disk space (%" PRIu64 " MiB) on %s: %" PRIu64 " MiB needed",
+		          MBsFree, dldir.c_str(), MBsNeeded);
 		return 5;
 	}
 

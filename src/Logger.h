@@ -6,6 +6,8 @@
 extern "C" {
 #endif
 
+#include <stdint.h>
+
 void LOG_DISABLE(bool disableLogging);
 
 enum L_LEVEL {
@@ -42,7 +44,7 @@ extern void L_LOG(const char* fileName, int line, const char* funcName, L_LEVEL 
  * @param total total bytes to download
  * @param forceOutput force output
  */
-extern void LOG_PROGRESS(long done, long total, bool forceOutput = false);
+extern void LOG_PROGRESS(int64_t done, int64_t total, bool forceOutput = false);
 
 #ifdef __cplusplus
 }

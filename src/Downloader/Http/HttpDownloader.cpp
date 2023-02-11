@@ -722,9 +722,10 @@ bool CHttpDownloader::download(std::list<IDownload*>& download, int max_parallel
 		}
 	} while (running > 0 || downloads_it != downloads.end());
 	aborted = false;
-	LOG_INFO("Download: num files: %ld, protocol: %s, to first byte: %s, transfer: %s, num retried "
+	LOG_INFO("Download: num files: %u, protocol: %s, to first byte: %s, transfer: %s, num retried "
 	         "errors: %d",
-	         downloads.size(), curlHttpVersionToString(stats.http_version).c_str(),
+	         static_cast<unsigned>(downloads.size()),
+	         curlHttpVersionToString(stats.http_version).c_str(),
 	         computeStats(stats.time_to_first_byte).c_str(),
 	         computeStats(stats.total_transfer_time).c_str(), stats.num_errors);
 abort:

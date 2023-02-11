@@ -3,8 +3,10 @@
 #include "Logger.h"
 
 #include <chrono>
-#include <stdarg.h>
-#include <stdio.h>
+#include <cinttypes>
+#include <cstdarg>
+#include <cstddef>
+#include <cstdio>
 
 // Logging functions in standalone mode
 // prdLogRaw is supposed to flush after printing (mostly to stdout/err
@@ -87,10 +89,10 @@ extern void L_LOG(const char* fileName, int line, const char* funName, L_LEVEL l
 	va_end(args);
 }
 
-extern void LOG_PROGRESS(long done, long total, bool forceOutput)
+extern void LOG_PROGRESS(int64_t done, int64_t total, bool forceOutput)
 {
 	static std::chrono::steady_clock::time_point lastlogtime;
-	static float lastPercentage = 0.0f;
+	static double lastPercentage = 0.0f;
 
 	if (!logEnabled) {
 		return;
@@ -103,28 +105,23 @@ extern void LOG_PROGRESS(long done, long total, bool forceOutput)
 		if (!forceOutput)
 			return;
 	}
-	if (total < 0)  // if total bytes are unknown set to 50%
-		total = done * 2;
-	float percentage = 0;
+
+	double percentage = 0;
 	if (total > 0) {
-		percentage = (float)done / total;
+		percentage = static_cast<double>(done) / static_cast<double>(total);
 	}
 
 	if (percentage == lastPercentage)
 		return;
 	lastPercentage = percentage;
 
-	LOG("[Progress] %3.0f%% [", percentage * 100.0f);
-	int totaldotz = 30;  // how wide you want the progress meter to be
-	int dotz = percentage * totaldotz;
-	for (int i = 0; i < totaldotz; i++) {
-		if (i >= dotz)
-			LOG(" ");  // blank
-		else
-			LOG("=");  // full
+	// In case the toal/done are incorrect, put 50%
+	if (percentage < 0 || percentage > 1) {
+		percentage = 0.5;
 	}
-	// and back to line begin - do not forget the fflush to avoid output buffering
-	// problems!
-	LOG("] %ld/%ld ", done, total);
-	LOG("\r");
+
+	constexpr int barLen = 30;
+	const char bar[barLen * 2 + 1] = "==============================                              ";
+	LOG("[Progress] %3.0f%% [%.30s] %" PRIi64 "/%" PRIi64 " \r", percentage * 100.0f,
+	    bar + static_cast<std::ptrdiff_t>(barLen * (1 - percentage)), done, total);
 }
