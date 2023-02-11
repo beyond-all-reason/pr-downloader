@@ -59,6 +59,10 @@ static size_t WriteMemoryCallback(void* contents, size_t size, size_t nmemb, voi
 static int progress_func(DownloadData* data, curl_off_t total, curl_off_t done, curl_off_t,
                          curl_off_t)
 {
+	// This functions will be called with 0 when redirections and header parsing happens in curl.
+	if (total == 0) {
+		return 0;
+	}
 	if (IDownloader::AbortDownloads()) {
 		return -1;
 	}
