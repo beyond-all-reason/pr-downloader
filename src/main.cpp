@@ -104,14 +104,14 @@ try {
 	} else if (args.count("version")) {
 		return 0;
 	}
+	if (args.count("disable-logging")) {
+		DownloadDisableLogging(true);
+	}
 	if (args.count("filesystem-writepath")) {
 		DownloadSetConfig(CONFIG_FILESYSTEM_WRITEPATH,
 		                  args.at("filesystem-writepath").back().c_str());
 	} else {
 		DownloadSetConfig(CONFIG_FILESYSTEM_WRITEPATH, "");
-	}
-	if (args.count("disable-logging")) {
-		DownloadDisableLogging(true);
 	}
 	if (args.count("disable-fetch-depends")) {
 		bool fetch_depends = false;
