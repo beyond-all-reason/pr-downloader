@@ -4,7 +4,9 @@
 #include "FileSystem/FileSystem.h"
 #include "Logger.h"
 
-#include <string.h>
+#include <cstdlib>
+#include <cstring>
+#include <memory>
 #include <zlib.h>
 
 std::vector<std::string> tokenizeString(const std::string& str, char c)
@@ -143,10 +145,34 @@ void ensureUtf8Argv(int* argc, char*** argv)
 	*argv = const_cast<char**>(argv_data.data());
 }
 
+std::optional<std::string> getEnvVar(const std::string& name)
+{
+	std::wstring wname = s2ws(name);
+	DWORD size = GetEnvironmentVariableW(wname.c_str(), NULL, 0);
+	if (size == 0) {
+		if (GetLastError() != ERROR_ENVVAR_NOT_FOUND) {
+			LOG_ERROR("Failed to get environment variable %s: %u", name.c_str(), GetLastError());
+		}
+		return std::nullopt;
+	}
+	auto buf = std::make_unique<wchar_t[]>(size);
+	GetEnvironmentVariableW(wname.c_str(), buf.get(), size);
+	return ws2s(buf.get());
+}
+
 #else
 
 void ensureUtf8Argv(int*, char***)
 {
+}
+
+std::optional<std::string> getEnvVar(const std::string& name)
+{
+	const char* value = std::getenv(name.c_str());
+	if (value == nullptr) {
+		return std::nullopt;
+	}
+	return std::string(value);
 }
 
 #endif

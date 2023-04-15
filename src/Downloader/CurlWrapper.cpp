@@ -9,6 +9,7 @@
 #include "FileSystem/FileSystem.h"
 #include "IDownloader.h"
 #include "Logger.h"
+#include "Util.h"
 #include "Version.h"
 
 #ifndef CURL_VERSION_BITS
@@ -20,8 +21,8 @@
 #endif
 
 static bool verify_certificate = true;
-static const char* certDir = nullptr;
-static const char* certFile = nullptr;
+static std::optional<std::string> certDir = std::nullopt;
+static std::optional<std::string> certFile = std::nullopt;
 
 static void DumpVersion()
 {
@@ -33,8 +34,8 @@ static void DumpVersion()
 
 static void ConfigureCertificates()
 {
-	certFile = std::getenv("SSL_CERT_FILE");
-	certDir = std::getenv("SSL_CERT_DIR");
+	certFile = getEnvVar("SSL_CERT_FILE");
+	certDir = getEnvVar("SSL_CERT_DIR");
 
 #if defined(__linux__)
 	// This code is needed because curl library can be statically linked and then
@@ -52,12 +53,12 @@ static void ConfigureCertificates()
 		"/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem",  // CentOS/RHEL 7
 		"/etc/ssl/cert.pem",                                  // Alpine Linux
 	};
-	for (auto cf = certFiles.begin(); certFile == nullptr && cf != certFiles.end(); ++cf) {
+	for (auto cf = certFiles.begin(); !certFile && cf != certFiles.end(); ++cf) {
 		if (fileSystem->fileExists(*cf)) {
 			certFile = *cf;
 		}
 	}
-	if (certFile == nullptr) {
+	if (!certFile) {
 		LOG_WARN("Not found cert file in any of known locations, download will likely fail");
 	}
 
@@ -65,41 +66,41 @@ static void ConfigureCertificates()
 		"/etc/ssl/certs",      // SLES10/SLES11, https://golang.org/issue/12139
 		"/etc/pki/tls/certs",  // Fedora/RHEL
 	};
-	for (auto cd = certDirs.begin(); certDir == nullptr && cd != certDirs.end(); ++cd) {
+	for (auto cd = certDirs.begin(); !certDir && cd != certDirs.end(); ++cd) {
 		if (fileSystem->directoryExists(*cd)) {
 			certDir = *cd;
 		}
 	}
-	if (certDir == nullptr) {
+	if (!certDir) {
 		LOG_WARN("Not found cert dir in any of known locations, download will likely fail");
 	}
 #endif
 
 	LOG_INFO("CURLOPT_CAINFO is %s (can be overriden by SSL_CERT_FILE env variable)",
-	         certFile == nullptr ? "nullptr" : certFile);
+	         !certFile ? "nullptr" : certFile.value().c_str());
 	LOG_INFO("CURLOPT_CAPATH is %s (can be overriden by SSL_CERT_DIR env variable)",
-	         certDir == nullptr ? "nullptr" : certDir);
+	         !certDir ? "nullptr" : certDir.value().c_str());
 }
 
 static void SetCAOptions(CURL* handle)
 {
 #ifdef _WIN32
-	if (certFile == nullptr && certDir == nullptr) {
+	if (!certFile && !certDir) {
 		// CURLSSLOPT_NATIVE_CA was added in curl 7.71.0
 		curl_easy_setopt(handle, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NATIVE_CA);
 	}
 #endif
 
-	if (certFile != nullptr) {
-		const int res = curl_easy_setopt(handle, CURLOPT_CAINFO, certFile);
+	if (certFile) {
+		const int res = curl_easy_setopt(handle, CURLOPT_CAINFO, certFile.value().c_str());
 		if (res != CURLE_OK) {
-			LOG_WARN("Error setting CURLOPT_CAINFO to %s: %d", certFile, res);
+			LOG_WARN("Error setting CURLOPT_CAINFO to %s: %d", certFile.value().c_str(), res);
 		}
 	}
-	if (certDir != nullptr) {
-		const int res = curl_easy_setopt(handle, CURLOPT_CAPATH, certDir);
+	if (certDir) {
+		const int res = curl_easy_setopt(handle, CURLOPT_CAPATH, certDir.value().c_str());
 		if (res != CURLE_OK) {
-			LOG_WARN("Error setting CURLOPT_CAPATH to %s: %d", certDir, res);
+			LOG_WARN("Error setting CURLOPT_CAPATH to %s: %d", certDir.value().c_str(), res);
 		}
 	}
 }

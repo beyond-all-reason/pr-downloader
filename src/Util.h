@@ -5,6 +5,7 @@
 #define HTTP_SEARCH_URL "https://springfiles.springrts.com/json.php"
 #define MAX_PARALLEL_DOWNLOADS 10
 
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -56,6 +57,11 @@ std::wstring s2ws(const std::string& s);
  * To be called as first thing in the program, ensures that argv is utf8 encoded on all platforms.
  */
 void ensureUtf8Argv(int* argc, char*** argv);
+
+/**
+ * Function for fetching environment variables under all platforms with correct encoding
+ */
+std::optional<std::string> getEnvVar(const std::string& name);
 
 /**
  * Takes argc, args and a arg_name -> has_value map with valid options and returns a parsed
