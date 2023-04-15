@@ -190,4 +190,5 @@ try {
 	return dlres;
 } catch (const ArgumentParseEx& ex) {
 	LOG_ERROR("Failed to parse arguments: %s", ex.what());
+	return 1;
 }
