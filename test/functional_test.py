@@ -712,6 +712,9 @@ class TestDownloading(unittest.TestCase):
 
         def resolver(handler: HTTPHandler) -> tuple[bool, Optional[BinaryIO]]:
             nonlocal retries_left
+
+            self.assertEqual(handler.headers.get("X-Prd-Retry-Num"), str(3 - retries_left))
+
             if handler.path.endswith(failing_file.rapid_filename().replace(
                     '\\', '/')):
                 if retries_left > 0:

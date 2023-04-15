@@ -321,6 +321,8 @@ static bool setupDownload(CURLM* curlm, DownloadData* piece)
 	curl_easy_setopt(curle, CURLOPT_PIPEWAIT, 1L);
 	curl_easy_setopt(curle, CURLOPT_BUFFERSIZE, 16384);
 
+	piece->curlw->AddHeader("X-Prd-Retry-Num: " + std::to_string(piece->retry_num));
+
 	if (piece->download->noCache) {
 		piece->curlw->AddHeader("Cache-Control: no-cache");
 	}
