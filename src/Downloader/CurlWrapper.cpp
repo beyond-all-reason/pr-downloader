@@ -34,8 +34,8 @@ static void DumpVersion()
 
 static void ConfigureCertificates()
 {
-	certFile = getEnvVar("SSL_CERT_FILE");
-	certDir = getEnvVar("SSL_CERT_DIR");
+	certFile = getEnvVar("PRD_SSL_CERT_FILE");
+	certDir = getEnvVar("PRD_SSL_CERT_DIR");
 
 #if defined(__linux__)
 	// This code is needed because curl library can be statically linked and then
@@ -76,9 +76,9 @@ static void ConfigureCertificates()
 	}
 #endif
 
-	LOG_INFO("CURLOPT_CAINFO is %s (can be overriden by SSL_CERT_FILE env variable)",
+	LOG_INFO("CURLOPT_CAINFO is %s (can be overriden by PRD_SSL_CERT_FILE env variable)",
 	         !certFile ? "nullptr" : certFile.value().c_str());
-	LOG_INFO("CURLOPT_CAPATH is %s (can be overriden by SSL_CERT_DIR env variable)",
+	LOG_INFO("CURLOPT_CAPATH is %s (can be overriden by PRD_SSL_CERT_DIR env variable)",
 	         !certDir ? "nullptr" : certDir.value().c_str());
 }
 
