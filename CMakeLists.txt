@@ -27,6 +27,9 @@ set(PRD_BINDIR "." CACHE PATH "Where to install pr-downloader binary.")
 
 # Resolve dependencies.
 
+# Threads
+find_package(Threads REQUIRED)
+
 # CURL
 if(UNIX)
     find_package(PkgConfig REQUIRED)
