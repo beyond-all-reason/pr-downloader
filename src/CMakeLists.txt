@@ -40,6 +40,8 @@ target_include_directories(pr-downloader
 
 set_source_files_properties(Version.cpp PROPERTIES COMPILE_DEFINITIONS "PR_DOWNLOADER_VERSION=${PR_DOWNLOADER_VERSION}")
 
+find_package (Threads)
+
 target_link_libraries(pr-downloader
     PUBLIC
         prd::jsoncpp
@@ -50,7 +52,7 @@ target_link_libraries(pr-downloader
         pr-sha1
         7zip
         readerwriterqueue
-        pthread
+        ${CMAKE_THREAD_LIBS_INIT}
 )
 
 add_executable(pr-downloader_cli main.cpp)
