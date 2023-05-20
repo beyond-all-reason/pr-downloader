@@ -50,6 +50,7 @@ target_link_libraries(pr-downloader
         pr-sha1
         7zip
         readerwriterqueue
+        pthread
 )
 
 add_executable(pr-downloader_cli main.cpp)
