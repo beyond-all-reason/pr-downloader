@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <list>
 #include <optional>
 #include <string>
@@ -141,11 +142,11 @@ public:
 	 */
 	static std::string DirName(const std::string& path);
 
-	static uint64_t getMBsFree(const std::string& path);
+	static std::uint64_t getMBsFree(const std::string& path);
 
-	static int64_t getFileSize(const std::string& path);
+	static std::int64_t getFileSize(const std::string& path);
 
-	static int64_t getFileTimestamp(const std::string& path);
+	static std::int64_t getFileTimestamp(const std::string& path);
 
 	static int dupFileFD(FILE* f);
 
