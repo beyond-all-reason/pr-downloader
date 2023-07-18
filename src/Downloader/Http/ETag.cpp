@@ -1,5 +1,6 @@
 #include "ETag.h"
 
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <optional>
