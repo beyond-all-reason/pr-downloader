@@ -419,8 +419,9 @@ static void writeMd5SumFile(DownloadData* data)
 	}
 
 	std::stringstream outBuf;
+	const auto filename = std::filesystem::u8path(data->download->name).filename().u8string();
 	outBuf << data->download->hash->toString() << "  "
-		   << std::filesystem::u8path(data->download->name).filename().u8string() << "\n";
+		   << std::string(filename.cbegin(), filename.cend()) << "\n";
 	const std::string outBufStr = outBuf.str();
 
 	for (std::size_t pos = 0; pos < outBufStr.size();) {

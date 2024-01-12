@@ -402,7 +402,8 @@ try {
 			LOG_WARN("Invalid file name, ignoring: %s", p.u8string().c_str());
 			continue;
 		}
-		files.emplace_back(p.u8string(), md5);
+		const auto path = p.u8string();
+		files.emplace_back(std::string(path.cbegin(), path.cend()), md5);
 	}
 	return files;
 } catch (std::filesystem::filesystem_error const& ex) {
