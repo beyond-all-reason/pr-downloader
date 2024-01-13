@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
 #include <list>
 #include <optional>
 #include <string>
@@ -21,6 +22,29 @@ struct _FILETIME;
 #endif
 
 #define IO_BUF_SIZE 4096
+
+/* Creates std::filesystem::path from utf-8 encoded std::string
+ *
+ * All paths and string as used in the pr-downloader must be UTF-8
+ * and not any other encoding. This helper is a replactement for the
+ * `std::filesystem::u8path` deprecated in C++17 that makes sure that path
+ * is opened using UTF-8 mode.
+ */
+inline std::filesystem::path u8ToPath(const std::string& path)
+{
+#if defined(__cpp_lib_char8_t)
+	return std::filesystem::path(std::u8string(path.begin(), path.end()));
+#else
+	return std::filesystem::u8path(path);
+#endif
+}
+
+/* Creates a utf-8 encoded std::string from std::filesystem::path */
+inline std::string pathToU8(std::filesystem::path path)
+{
+	const auto s = path.u8string();
+	return std::string(s.cbegin(), s.cend());
+}
 
 class CFileSystem
 {

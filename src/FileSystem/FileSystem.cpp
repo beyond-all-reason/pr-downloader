@@ -389,7 +389,7 @@ std::optional<std::vector<std::pair<std::string, HashMD5>>> CFileSystem::getPool
 std::optional<std::vector<std::pair<std::string, HashMD5>>> CFileSystem::getPoolFiles()
 try {
 	TRACE();
-	const auto path = std::filesystem::u8path(getSpringDir() + PATH_DELIMITER + "pool");
+	const auto path = u8ToPath(getSpringDir() + PATH_DELIMITER + "pool");
 	std::vector<std::pair<std::string, HashMD5>> files;
 	for (const std::filesystem::directory_entry& dir_entry :
 	     std::filesystem::recursive_directory_iterator(path)) {
@@ -399,11 +399,10 @@ try {
 		}
 		HashMD5 md5;
 		if (!md5.IHash::Set(p.parent_path().filename().string() + p.stem().string())) {
-			LOG_WARN("Invalid file name, ignoring: %s", p.u8string().c_str());
+			LOG_WARN("Invalid file name, ignoring: %s", pathToU8(p).c_str());
 			continue;
 		}
-		const auto path = p.u8string();
-		files.emplace_back(std::string(path.cbegin(), path.cend()), md5);
+		files.emplace_back(pathToU8(p), md5);
 	}
 	return files;
 } catch (std::filesystem::filesystem_error const& ex) {
@@ -659,7 +658,7 @@ bool CFileSystem::extract(const std::string& filename, const std::string& dstdir
 
 bool CFileSystem::Rename(const std::string& source, const std::string& destination)
 try {
-	std::filesystem::rename(std::filesystem::u8path(source), std::filesystem::u8path(destination));
+	std::filesystem::rename(u8ToPath(source), u8ToPath(destination));
 	return true;
 } catch (std::filesystem::filesystem_error const& ex) {
 	LOG_ERROR("Failed to rename %s to %s: %s", source.c_str(), destination.c_str(), ex.what());
@@ -713,7 +712,7 @@ std::string CFileSystem::EscapeFilename(const std::string& str)
 uint64_t CFileSystem::getMBsFree(const std::string& path)
 {
 	std::error_code ec;
-	auto sp = std::filesystem::space(std::filesystem::u8path(path), ec);
+	auto sp = std::filesystem::space(u8ToPath(path), ec);
 	if (ec) {
 		LOG_ERROR("Error getting free disk space on %s: %s", path.c_str(), ec.message().c_str());
 		return 0;
@@ -724,7 +723,7 @@ uint64_t CFileSystem::getMBsFree(const std::string& path)
 int64_t CFileSystem::getFileSize(const std::string& path)
 {
 	std::error_code ec;
-	std::uintmax_t size = std::filesystem::file_size(std::filesystem::u8path(path), ec);
+	std::uintmax_t size = std::filesystem::file_size(u8ToPath(path), ec);
 	if (ec) {
 		LOG_ERROR("Failed to get size of %s: %s", path.c_str(), ec.message().c_str());
 		return -1;
