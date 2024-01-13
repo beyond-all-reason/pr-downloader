@@ -76,7 +76,7 @@ bool CRepo::parse()
 		}
 
 		const std::string line = buf;
-		const std::vector<std::string> items = tokenizeString(line, ',');
+		std::vector<std::string> items = tokenizeString(line, ',');
 		if (items.size() < 4) {
 			LOG_ERROR("Invalid line: %s", line.c_str());
 			gzclose(fp);
