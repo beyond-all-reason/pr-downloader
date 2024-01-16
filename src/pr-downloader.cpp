@@ -287,7 +287,7 @@ int DownloadStart()
 	const uint64_t MBsNeeded = (dlsize / (1024 * 1024)) + 1024;
 
 	if (MBsFree < MBsNeeded) {
-		LOG_ERROR("Insuffcient free disk space (%" PRIu64 " MiB) on %s: %" PRIu64 " MiB needed",
+		LOG_ERROR("Insufficient free disk space (%" PRIu64 " MiB) on %s: %" PRIu64 " MiB needed",
 		          MBsFree, dldir.c_str(), MBsNeeded);
 		return 5;
 	}
