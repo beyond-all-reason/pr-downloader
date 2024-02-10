@@ -78,6 +78,8 @@ endif()
 
 add_subdirectory(src/lib)
 
+add_library(prd::base64 ALIAS pr-base64)
+
 # Include actual program source
 add_subdirectory(src)
 

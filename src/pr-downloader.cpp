@@ -5,8 +5,8 @@
 #include "Logger.h"
 #include "Tracer.h"
 #include "Version.h"
-#include "lib/base64/base64.h"
 #include "lib/md5/md5.h"
+#include <base64.h>
 
 #include <assert.h>
 #include <cinttypes>
