@@ -29,7 +29,6 @@ add_library(pr-downloader
     Tracer.cpp
     Util.cpp
     Version.cpp
-    lib/base64/base64.cpp
     pr-downloader.cpp
 )
 
@@ -46,6 +45,7 @@ target_link_libraries(pr-downloader
         prd::libcurl
         ZLIB::ZLIB
         prd::minizip
+        pr-base64
         pr-md5
         pr-sha1
         7zip
