@@ -87,8 +87,6 @@ bool CHttpDownloader::DownloadUrl(const std::string& url, std::string& res)
 	curl_easy_setopt(curlw.GetHandle(), CURLOPT_XFERINFOFUNCTION, progress_func);
 	curl_easy_setopt(curlw.GetHandle(), CURLOPT_NOPROGRESS, 0L);
 
-	curl_easy_setopt(curlw.GetHandle(), CURLOPT_VERBOSE, 1L);
-
 	const CURLcode curlres = curl_easy_perform(curlw.GetHandle());
 
 	delete d.download;
