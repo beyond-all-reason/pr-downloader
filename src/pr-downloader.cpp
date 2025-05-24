@@ -39,6 +39,10 @@ DownloadEnum::Category getPlatformEngineCat()
 			return DownloadEnum::CAT_ENGINE_LINUX64;
 		case Platform::Windows_x64:
 			return DownloadEnum::CAT_ENGINE_WINDOWS64;
+		case Platform::Linux_arm64:
+			return DownloadEnum::CAT_ENGINE_LINUX_ARM64;
+		case Platform::MacOS_arm64:
+			return DownloadEnum::CAT_ENGINE_MACOSX_ARM64;
 		default:
 			// unreachable
 			std::abort();
