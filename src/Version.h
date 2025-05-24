@@ -5,12 +5,7 @@
 const char* getVersion();
 const char* getAgent();
 
-enum class Platform {
-	Windows_x64,
-	Linux_x64,
-	Linux_arm64,
-	MacOS_arm64
-};
+enum class Platform { Windows_x64, Linux_x64, Linux_arm64, MacOS_arm64 };
 
 #if defined(_WIN64)
 constexpr Platform PRD_CURRENT_PLATFORM = Platform::Windows_x64;
