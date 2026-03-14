@@ -1,5 +1,6 @@
 #include "pr-downloader.h"
 #include "Downloader/Download.h"
+#include "Downloader/DownloadEnum.h"
 #include "Downloader/IDownloader.h"
 #include "FileSystem/FileSystem.h"
 #include "Logger.h"
@@ -28,8 +29,13 @@ void SetDownloadListener(IDownloaderProcessUpdateListener listener)
 bool isEngineDownload(DownloadEnum::Category cat)
 {
 	return (cat == DownloadEnum::CAT_ENGINE) || (cat == DownloadEnum::CAT_ENGINE_LINUX) ||
-	       (cat == DownloadEnum::CAT_ENGINE_LINUX64) || (cat == DownloadEnum::CAT_ENGINE_MACOSX) ||
-	       (cat == DownloadEnum::CAT_ENGINE_WINDOWS) || (cat == DownloadEnum::CAT_ENGINE_WINDOWS64);
+	       (cat == DownloadEnum::CAT_ENGINE_LINUX64) ||
+	       (cat == DownloadEnum::CAT_ENGINE_LINUX_ARM64) ||
+	       (cat == DownloadEnum::CAT_ENGINE_MACOSX) ||
+	       (cat == DownloadEnum::CAT_ENGINE_MACOSX_ARM64) ||
+	       (cat == DownloadEnum::CAT_ENGINE_WINDOWS) ||
+	       (cat == DownloadEnum::CAT_ENGINE_WINDOWS64) ||
+	       (cat == DownloadEnum::CAT_ENGINE_WINDOWS_ARM64);
 }
 
 DownloadEnum::Category getPlatformEngineCat()
@@ -39,6 +45,8 @@ DownloadEnum::Category getPlatformEngineCat()
 			return DownloadEnum::CAT_ENGINE_LINUX64;
 		case Platform::Windows_x64:
 			return DownloadEnum::CAT_ENGINE_WINDOWS64;
+		case Platform::Windows_arm64:
+			return DownloadEnum::CAT_ENGINE_WINDOWS_ARM64;
 		case Platform::Linux_arm64:
 			return DownloadEnum::CAT_ENGINE_LINUX_ARM64;
 		case Platform::MacOS_arm64:
@@ -124,9 +132,12 @@ bool search(std::vector<DownloadSearchItem>& items, std::list<IDownload*>& searc
 			case DownloadEnum::CAT_MAP:
 			case DownloadEnum::CAT_ENGINE_LINUX:
 			case DownloadEnum::CAT_ENGINE_LINUX64:
+			case DownloadEnum::CAT_ENGINE_LINUX_ARM64:
 			case DownloadEnum::CAT_ENGINE_WINDOWS:
 			case DownloadEnum::CAT_ENGINE_WINDOWS64:
+			case DownloadEnum::CAT_ENGINE_WINDOWS_ARM64:
 			case DownloadEnum::CAT_ENGINE_MACOSX:
+			case DownloadEnum::CAT_ENGINE_MACOSX_ARM64:
 				http_search.push_back(&item);
 				break;
 			default:

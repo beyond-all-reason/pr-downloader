@@ -32,6 +32,8 @@ const char* platformToString(Platform platform)
 			return "linux64";
 		case Platform::Windows_x64:
 			return "windows64";
+		case Platform::Windows_arm64:
+			return "windows_arm64";
 		case Platform::MacOS_arm64:
 			return "macos_arm64";
 		case Platform::Linux_arm64:
