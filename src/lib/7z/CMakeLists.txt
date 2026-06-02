@@ -57,3 +57,9 @@ target_include_directories(7zip
 )
 
 set_target_properties(7zip PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+# GCC -Wstringop-overflow can't prove the bound on Bcj2Enc.c's temp[8] copy loop
+# and reports a bogus overflow; silence it on this vendored 7-Zip code.
+if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
+    target_compile_options(7zip PRIVATE -Wno-stringop-overflow)
+endif()
