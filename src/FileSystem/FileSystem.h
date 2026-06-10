@@ -122,6 +122,10 @@ public:
 	 */
 	bool validateSDP(const std::string& filename);
 	/**
+	 * list all installed packages (rapid .sdp files), cross-referenced with local versions.gz cache
+	 */
+	bool listPackages();
+	/**
 	 * extracts a 7z file to dstdir
 	 */
 	bool extract(const std::string& filename, const std::string& dstdir, bool overwrite = false);
