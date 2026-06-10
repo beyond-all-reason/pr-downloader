@@ -116,6 +116,11 @@ extern void SetDownloadListener(IDownloaderProcessUpdateListener listener);
 extern char* CalcHash(const char* str, int size, int type);
 
 /**
+ * uninstall a package by short name or descriptive name, e.g. "Beyond All Reason test-16314-fff9e7a"
+ */
+extern bool UninstallPackage(const char* name);
+
+/**
  * abort all downloads - must be called before shutting down,
  * all downloads must return before calling shutdown
  */

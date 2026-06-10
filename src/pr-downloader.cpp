@@ -2,6 +2,7 @@
 #include "Downloader/Download.h"
 #include "Downloader/DownloadEnum.h"
 #include "Downloader/IDownloader.h"
+#include "Downloader/Rapid/RapidDownloader.h"
 #include "FileSystem/FileSystem.h"
 #include "Logger.h"
 #include "Tracer.h"
@@ -372,4 +373,10 @@ char* CalcHash(const char* str, int size, int type)
 void SetAbortDownloads(bool value)
 {
 	IDownloader::SetAbortDownloads(value);
+}
+
+bool UninstallPackage(const char* name)
+{
+	auto* rapid = static_cast<CRapidDownloader*>(IDownloader::GetRapidInstance());
+	return rapid->uninstall(name);
 }

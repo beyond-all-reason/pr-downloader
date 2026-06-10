@@ -13,6 +13,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <list>
 #include <set>
 #include <string>
@@ -176,6 +177,93 @@ bool CRapidDownloader::match_download_name(const std::string& str1, const std::s
 	      }
   #endif
   */
+}
+
+bool CRapidDownloader::uninstall(const std::string& name)
+{
+	const std::string stripped = stripRapidUri(name);
+
+	if (!updateRepos({stripped})) {
+		return false;
+	}
+	sdps.sort(list_compare);
+
+	const std::string packages_dir =
+		fileSystem->getSpringDir() + PATH_DELIMITER + "packages" + PATH_DELIMITER;
+
+	bool any_removed = false;
+	for (const CSdp& sdp : sdps) {
+		if (!match_download_name(sdp.getShortName(), stripped) &&
+		    !match_download_name(sdp.getName(), stripped)) {
+			continue;
+		}
+
+		const std::string sdp_path = packages_dir + sdp.getMD5() + ".sdp";
+		if (!fileSystem->fileExists(sdp_path)) {
+			continue;
+		}
+
+		// Parse the target SDP to get its pool file MD5s
+		std::vector<FileData> target_files;
+		if (!fileSystem->parseSdp(sdp_path, target_files)) {
+			LOG_ERROR("Failed to parse SDP for '%s'", sdp.getName().c_str());
+			return false;
+		}
+
+		std::unordered_set<std::string> target_md5s;
+		for (const FileData& fd : target_files) {
+			HashMD5 md5;
+			md5.Set(fd.md5, sizeof(fd.md5));
+			target_md5s.insert(md5.toString());
+		}
+
+		// Collect pool files still needed by all other installed SDPs
+		std::unordered_set<std::string> still_needed;
+		try {
+			for (const auto& entry :
+			     std::filesystem::directory_iterator(u8ToPath(packages_dir))) {
+				const auto& p = entry.path();
+				if (p.extension() != std::filesystem::path(".sdp"))
+					continue;
+				const std::string other = pathToU8(p);
+				if (other == sdp_path)
+					continue;
+				std::vector<FileData> other_files;
+				if (!fileSystem->parseSdp(other, other_files))
+					continue;
+				for (const FileData& fd : other_files) {
+					HashMD5 md5;
+					md5.Set(fd.md5, sizeof(fd.md5));
+					still_needed.insert(md5.toString());
+				}
+			}
+		} catch (const std::filesystem::filesystem_error& ex) {
+			LOG_ERROR("Failed to scan packages directory: %s", ex.what());
+			return false;
+		}
+
+		// Remove pool files that are no longer referenced by any other package
+		for (const std::string& md5 : target_md5s) {
+			if (still_needed.count(md5))
+				continue;
+			const std::string pool_file = fileSystem->getPoolFilename(md5);
+			if (fileSystem->fileExists(pool_file)) {
+				LOG_DEBUG("Removing pool file: %s", pool_file.c_str());
+				fileSystem->removeFile(pool_file);
+			}
+		}
+
+		fileSystem->removeFile(sdp_path);
+		LOG_INFO("Uninstalled '%s'", sdp.getName().c_str());
+		any_removed = true;
+	}
+
+	if (!any_removed) {
+		LOG_ERROR("Package '%s' is not installed", name.c_str());
+		return false;
+	}
+
+	return true;
 }
 
 bool CRapidDownloader::setOption(const std::string& key, const std::string& value)
