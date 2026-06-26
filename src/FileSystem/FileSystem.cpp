@@ -14,7 +14,6 @@
 
 #include <array>
 #include <cstddef>
-#include <unordered_map>
 #include <cstdint>
 #include <cstdio>
 #include <filesystem>
@@ -25,6 +24,7 @@
 #include <string>
 #include <sys/stat.h>
 #include <thread>
+#include <unordered_map>
 #include <zlib.h>
 
 #ifdef _WIN32
@@ -538,8 +538,7 @@ bool CFileSystem::listPackages()
 		try {
 			for (const auto& entry :
 			     std::filesystem::recursive_directory_iterator(u8ToPath(rapidDir))) {
-				if (!entry.is_regular_file() ||
-				    entry.path().filename().string() != "versions.gz")
+				if (!entry.is_regular_file() || entry.path().filename().string() != "versions.gz")
 					continue;
 				FILE* f = propen(pathToU8(entry.path()), "rb");
 				if (!f)
@@ -569,7 +568,8 @@ bool CFileSystem::listPackages()
 				gzclose(gf);
 				fclose(f);
 			}
-		} catch (const std::filesystem::filesystem_error&) {}
+		} catch (const std::filesystem::filesystem_error&) {
+		}
 	}
 
 	if (!directoryExists(packagesDir)) {
@@ -579,15 +579,14 @@ bool CFileSystem::listPackages()
 
 	try {
 		int count = 0;
-		for (const auto& entry :
-		     std::filesystem::directory_iterator(u8ToPath(packagesDir))) {
+		for (const auto& entry : std::filesystem::directory_iterator(u8ToPath(packagesDir))) {
 			if (!entry.is_regular_file() || entry.path().extension().string() != ".sdp")
 				continue;
 			const std::string md5 = entry.path().stem().string();
 			auto it = md5Info.find(md5);
 			if (it != md5Info.end())
-				LOG_INFO("%s: %s [%s]", it->second.first.c_str(),
-				         it->second.second.c_str(), md5.c_str());
+				LOG_INFO("%s: %s [%s]", it->second.first.c_str(), it->second.second.c_str(),
+				         md5.c_str());
 			else
 				LOG_INFO("<unknown>: [%s]", md5.c_str());
 			++count;
