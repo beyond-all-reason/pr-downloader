@@ -13,6 +13,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <cctype>
 #include <filesystem>
 #include <list>
 #include <set>
@@ -104,6 +105,15 @@ static std::string ensureRapidUri(std::string_view name)
 	return "rapid://" + std::string(name);
 }
 
+static bool isMD5(std::string_view str)
+{
+	if (str.size() != 32) {
+		return false;
+	}
+	return std::all_of(str.begin(), str.end(),
+	                   [](unsigned char c) { return std::isxdigit(c); });
+}
+
 bool CRapidDownloader::search(std::list<IDownload*>& result,
                               const std::vector<DownloadSearchItem*>& items)
 {
@@ -183,30 +193,19 @@ bool CRapidDownloader::uninstall(const std::string& name)
 {
 	const std::string stripped = stripRapidUri(name);
 
-	if (!updateRepos({stripped})) {
-		return false;
-	}
-	sdps.sort(list_compare);
-
 	const std::string packages_dir =
 		fileSystem->getSpringDir() + PATH_DELIMITER + "packages" + PATH_DELIMITER;
 
-	bool any_removed = false;
-	for (const CSdp& sdp : sdps) {
-		if (!match_download_name(sdp.getShortName(), stripped) &&
-		    !match_download_name(sdp.getName(), stripped)) {
-			continue;
-		}
-
-		const std::string sdp_path = packages_dir + sdp.getMD5() + ".sdp";
+	auto uninstallSdp = [&](const std::string& sdp_md5, const std::string& display_name) {
+		const std::string sdp_path = packages_dir + sdp_md5 + ".sdp";
 		if (!fileSystem->fileExists(sdp_path)) {
-			continue;
+			return false;
 		}
 
 		// Parse the target SDP to get its pool file MD5s
 		std::vector<FileData> target_files;
 		if (!fileSystem->parseSdp(sdp_path, target_files)) {
-			LOG_ERROR("Failed to parse SDP for '%s'", sdp.getName().c_str());
+			LOG_ERROR("Failed to parse SDP for '%s'", display_name.c_str());
 			return false;
 		}
 
@@ -254,8 +253,89 @@ bool CRapidDownloader::uninstall(const std::string& name)
 		}
 
 		fileSystem->removeFile(sdp_path);
-		LOG_INFO("Uninstalled '%s'", sdp.getName().c_str());
-		any_removed = true;
+		LOG_INFO("Uninstalled '%s'", display_name.c_str());
+		return true;
+	};
+
+	if (isMD5(stripped)) {
+		if (uninstallSdp(stripped, stripped)) {
+			return true;
+		}
+		LOG_ERROR("Package '%s' is not installed", name.c_str());
+		return false;
+	}
+
+	bool any_removed = false;
+	if (updateRepos({stripped})) {
+		sdps.sort(list_compare);
+		for (const CSdp& sdp : sdps) {
+			if (!match_download_name(sdp.getShortName(), stripped) &&
+			    !match_download_name(sdp.getName(), stripped)) {
+				continue;
+			}
+			any_removed = uninstallSdp(sdp.getMD5(), sdp.getName()) || any_removed;
+		}
+	} else {
+		LOG_WARN("Failed to update rapid repos, trying local package cache");
+	}
+
+	if (!any_removed) {
+		const std::string rapid_dir =
+			fileSystem->getSpringDir() + PATH_DELIMITER + "rapid" + PATH_DELIMITER;
+		try {
+			if (fileSystem->directoryExists(rapid_dir)) {
+				for (const auto& entry :
+				     std::filesystem::recursive_directory_iterator(u8ToPath(rapid_dir))) {
+					const auto& path = entry.path();
+					if (!entry.is_regular_file() ||
+					    path.filename() != std::filesystem::path("versions.gz")) {
+						continue;
+					}
+
+					FILE* f = fileSystem->propen(pathToU8(path), "rb");
+					if (f == nullptr) {
+						continue;
+					}
+					int fd = fileSystem->dupFileFD(f);
+					if (fd < 0) {
+						fclose(f);
+						continue;
+					}
+					gzFile fp = gzdopen(fd, "rb");
+					if (fp == Z_NULL) {
+						fclose(f);
+						continue;
+					}
+
+					char buf[IO_BUF_SIZE];
+					while ((gzgets(fp, buf, sizeof(buf))) != Z_NULL) {
+						for (unsigned int i = 0; i < sizeof(buf); i++) {
+							if (buf[i] == '\n') {
+								buf[i] = 0;
+								break;
+							}
+						}
+
+						const std::string line = buf;
+						std::vector<std::string> items = tokenizeString(line, ',');
+						if (items.size() < 4) {
+							continue;
+						}
+						if (!match_download_name(items[0], stripped) &&
+						    !match_download_name(items[3], stripped)) {
+							continue;
+						}
+						any_removed =
+							uninstallSdp(items[1], items[3]) || any_removed;
+					}
+					gzclose(fp);
+					fclose(f);
+				}
+			}
+		} catch (const std::filesystem::filesystem_error& ex) {
+			LOG_ERROR("Failed to scan rapid cache: %s", ex.what());
+			return false;
+		}
 	}
 
 	if (!any_removed) {
