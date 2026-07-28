@@ -23,6 +23,7 @@ add_library(pr-downloader
     FileSystem/HashGzip.cpp
     FileSystem/HashMD5.cpp
     FileSystem/IHash.cpp
+    FileSystem/RapidStore.cpp
     FileSystem/SevenZipArchive.cpp
     FileSystem/ZipArchive.cpp
     Logger.cpp

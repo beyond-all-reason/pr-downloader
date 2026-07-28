@@ -87,14 +87,6 @@ bool CRapidDownloader::download_name(std::list<IDownload*>& downloads)
 	return ok;
 }
 
-static std::string stripRapidUri(std::string_view name)
-{
-	if (name.find("rapid://") == 0) {
-		return std::string(name.substr(8));
-	};
-	return std::string(name);
-}
-
 static std::string ensureRapidUri(std::string_view name)
 {
 	if (name.find("rapid://") == 0) {

@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <list>
 #include <optional>
 #include <string>
@@ -56,6 +57,13 @@ public:
 	 * parses the file for a mod and creates
 	 */
 	bool parseSdp(const std::string& filename, std::vector<FileData>& files);
+
+	/**
+	 * reads a gzipped text file line by line with line endings stripped, a handler returning false
+	 * stops reading early without failing
+	 */
+	static bool readGzLines(const std::string& path,
+	                        const std::function<bool(const std::string&)>& handler);
 
 	bool hashFile(IHash* outHash, const std::string& path) const;
 
