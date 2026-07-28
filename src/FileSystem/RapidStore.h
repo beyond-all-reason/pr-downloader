@@ -7,8 +7,6 @@
 #include <vector>
 
 struct RapidTag {
-	std::string domain;
-	std::string repo;
 	std::string tag;
 	std::string name;
 	std::size_t rank;
@@ -16,18 +14,14 @@ struct RapidTag {
 
 struct InstalledPackage {
 	std::string md5;
+	std::string name;
 	std::vector<RapidTag> tags;
-
-	/**
-	 * empty when no local versions.gz mentions this package
-	 */
-	const std::string& getName() const;
 };
 
 /**
- * Read/write access to the installed rapid packages under the write path, without any network
- * access. Names are resolved against what is on disk rather than against a repo index, so a package
- * stays removable after its tag stops being published.
+ * The installed rapid packages under the write path. Names resolve against what is on disk instead
+ * of against a repo index, so removing a package needs no network and keeps working after its tag
+ * stops being published.
  */
 class CRapidStore
 {
@@ -41,15 +35,15 @@ public:
 	bool scan();
 
 	/**
-	 * Matches an md5, a rapid tag or an archive name against the installed packages, following the
-	 * precedence the engine uses in ArchiveNameResolver. Fills matches with the single match on OK
-	 * and with every candidate on AMBIGUOUS.
+	 * Matches an md5, a rapid tag or an archive name, following the precedence the engine uses in
+	 * ArchiveNameResolver. Fills matches with the one match on OK and with every candidate on
+	 * AMBIGUOUS.
 	 */
 	Resolution resolve(const std::string& query,
 	                   std::vector<const InstalledPackage*>& matches) const;
 
 	/**
-	 * Removes the sdp files and then every pool file left unreferenced by the packages that remain.
+	 * Removes the sdp files, then the pool files left unreferenced by the packages that remain.
 	 */
 	bool remove(const std::vector<const InstalledPackage*>& to_remove);
 
@@ -58,6 +52,4 @@ private:
 	std::vector<std::string> domain_order;
 
 	std::size_t rankDomain(const std::string& domain) const;
-	bool scanPackagesDir();
-	bool scanVersionsCache();
 };

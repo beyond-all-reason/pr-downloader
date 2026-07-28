@@ -372,7 +372,7 @@ bool UninstallPackages(const std::vector<std::string>& names)
 				LOG_ERROR("'%s' matches %d installed packages, uninstall by md5 instead:",
 				          name.c_str(), static_cast<int>(matches.size()));
 				for (const InstalledPackage* pkg : matches) {
-					LOG_ERROR("  %s %s", pkg->md5.c_str(), pkg->getName().c_str());
+					LOG_ERROR("  %s %s", pkg->md5.c_str(), pkg->name.c_str());
 				}
 				resolved_all = false;
 				break;
