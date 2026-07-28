@@ -139,6 +139,12 @@ CRapidStore::Resolution CRapidStore::resolve(const std::string& query,
 	matches.clear();
 	const std::string wanted = stripRapidUri(query);
 
+	// packages with no versions.gz entry carry no tags and no name, so an empty query would
+	// otherwise match them and remove one
+	if (wanted.empty()) {
+		return Resolution::NOT_FOUND;
+	}
+
 	if (isPackageMD5(wanted)) {
 		const std::string md5 = toLower(wanted);
 		for (const InstalledPackage& pkg : packages) {
@@ -171,7 +177,11 @@ CRapidStore::Resolution CRapidStore::resolve(const std::string& query,
 
 	if (matches.empty()) {
 		for (const InstalledPackage& pkg : packages) {
-			if (pkg.name == wanted) {
+			// repos can list one package under different names, all of them should resolve
+			const bool matched =
+				std::any_of(pkg.tags.begin(), pkg.tags.end(),
+			                [&](const RapidTag& tag) { return tag.name == wanted; });
+			if (matched) {
 				matches.push_back(&pkg);
 			}
 		}
@@ -211,15 +221,19 @@ try {
 
 	std::unordered_set<std::string> still_needed;
 	for (const auto& entry : std::filesystem::directory_iterator(u8ToPath(packages_dir))) {
-		// .sdp.incomplete belongs to a download in flight, its pool files are not orphans
 		const std::string ext = pathToU8(entry.path().extension());
-		if (!entry.is_regular_file() || (ext != ".sdp" && ext != ".incomplete")) {
+		// .sdp.incomplete belongs to a download in flight, its pool files are not orphans
+		const bool is_sdp = ext == ".sdp";
+		const bool is_partial_sdp =
+			ext == ".incomplete" && pathToU8(entry.path().stem().extension()) == ".sdp";
+		if (!entry.is_regular_file() || (!is_sdp && !is_partial_sdp)) {
 			continue;
 		}
+		// Anything unreadable here is already broken, so it gets skipped rather than blocking the
+		// cleanup forever. Whatever it needed comes back on the next download.
 		if (!collectPoolFiles(pathToU8(entry.path()), still_needed)) {
-			LOG_ERROR("Could not read %s, skipping pool cleanup to avoid deleting files it needs",
-			          pathToU8(entry.path().filename()).c_str());
-			return false;
+			LOG_WARN("Could not read %s, pool files only it referenced will be removed",
+			         pathToU8(entry.path().filename()).c_str());
 		}
 	}
 
