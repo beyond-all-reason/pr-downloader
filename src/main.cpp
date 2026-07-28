@@ -18,7 +18,7 @@ void show_version()
 	LOG("pr-downloader %s (%s)\n", getVersion(), platformToString(PRD_CURRENT_PLATFORM));
 }
 
-const static std::array<std::tuple<std::string, bool, std::string>, 13> opts_array = {{
+const static std::array<std::tuple<std::string, bool, std::string>, 14> opts_array = {{
 	{"help", false, "Print this help message"},
 	{"version", false, "Show version of pr-downloader and quit"},
 	{"filesystem-writepath", true, "Set the directory with data, defaults to current dir"},
@@ -32,6 +32,8 @@ const static std::array<std::tuple<std::string, bool, std::string>, 13> opts_arr
 	{"validate-sdp", true,
      "Validate correctness of files in Sdp archive, takes full path to the Sdp file"},
 	{"dump-sdp", true, "Dump contents of Sdp file, takes full path to the Sdp file"},
+	{"uninstall", true,
+     "Remove an installed game by md5, rapid tag or name, eg. 'gg:test', 'GG 1.2'"},
 	{"disable-logging", false, "Disables logging"},
 	{"disable-fetch-depends", false, "Disables downloading of dependend archives"},
 }};
@@ -55,6 +57,9 @@ Environment variables:
       Whatever to use streamer.cgi for downloading.
   PRD_RAPID_REPO_MASTER=[https://repos.springrts.com/repos.gz]
       URL of the rapid repo master.
+  PRD_RAPID_TAG_RESOLUTION_ORDER=[]
+      ';' separated domains, preference order when --uninstall resolves a rapid tag.
+      Mirrors the engine's RapidTagResolutionOrder, repos.springrts.com is always last.
   PRD_MAX_HTTP_REQS_PER_SEC=[0]
       Limit on number of requests per second for HTTP downloading, 0 = unlimited
   PRD_HTTP_SEARCH_URL=[https://springfiles.springrts.com/json.php]
@@ -129,6 +134,14 @@ try {
 	if (auto it = args.find("validate-sdp"); it != args.end()) {
 		if (!ValidateSDP(it->second.back().c_str())) {
 			LOG_ERROR("Error validating SDP");
+			return 1;
+		}
+		return 0;
+	}
+
+	if (auto it = args.find("uninstall"); it != args.end()) {
+		if (!UninstallPackages(it->second)) {
+			LOG_ERROR("Error uninstalling");
 			return 1;
 		}
 		return 0;
