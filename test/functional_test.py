@@ -922,6 +922,67 @@ class TestDownloading(unittest.TestCase):
 
         self.assertTrue(self.verify_downloaded_rapid('repo:pkg'))
 
+    def test_uninstall_empty_name_fails_and_changes_nothing(self) -> None:
+        repo = self.rapid.add_repo('repo')
+        archive = repo.add_archive('pkg')
+        archive.add_file('a.txt', b'a')
+        self.rapid.save(self.serving_root)
+
+        with self.server.serve():
+            self.assertEqual(self.call_rapid_download('repo:pkg'), 0)
+
+        # Without a versions.gz the package has no tags and no name, which must
+        # not turn an empty argument into a match.
+        shutil.rmtree(os.path.join(self.dest_root, 'rapid'))
+
+        self.assertNotEqual(self.call_uninstall(''), 0)
+        self.assertNotEqual(self.call_uninstall('rapid://'), 0)
+
+        self.assertTrue(self.exists_in_dest(archive))
+
+    def test_uninstall_by_name_from_lower_ranked_domain(self) -> None:
+        repo = self.rapid.add_repo('repo')
+        archive = repo.add_archive('pkg', 'Real Name')
+        archive.add_file('a.txt', b'a')
+        self.rapid.save(self.serving_root)
+
+        with self.server.serve():
+            self.assertEqual(self.call_rapid_download('repo:pkg'), 0)
+
+        # A higher ranked domain lists the same package under another name, the
+        # name the package was installed under still has to resolve.
+        self.write_rapid_domain('other.example.com', 'repo',
+                                [f'repo:other,{archive.get_md5()},,Other Name'])
+
+        self.assertEqual(
+            self.call_uninstall('Real Name',
+                                extra_env={
+                                    'PRD_RAPID_TAG_RESOLUTION_ORDER':
+                                        'other.example.com'
+                                }), 0)
+
+        self.assertFalse(self.exists_in_dest(archive))
+
+    def test_uninstall_tolerates_unreadable_incomplete_sdp(self) -> None:
+        repo = self.rapid.add_repo('repo')
+        archive = repo.add_archive('pkg')
+        pool_file = archive.add_file('a.txt', b'a')
+        self.rapid.save(self.serving_root)
+
+        with self.server.serve():
+            self.assertEqual(self.call_rapid_download('repo:pkg'), 0)
+
+        # What a killed download leaves behind.
+        truncated = os.path.join(self.dest_root, 'packages',
+                                 f'{"f" * 32}.sdp.incomplete')
+        with open(truncated, 'wb') as out:
+            out.write(b'junk')
+
+        self.assertEqual(self.call_uninstall('repo:pkg'), 0)
+
+        self.assertFalse(self.exists_in_dest(archive))
+        self.assertFalse(self.exists_in_dest(pool_file))
+
     def test_uninstall_ambiguous_name_fails_and_changes_nothing(self) -> None:
         repo1 = self.rapid.add_repo('repo1')
         archive1 = repo1.add_archive('pkg', 'Same Name')
