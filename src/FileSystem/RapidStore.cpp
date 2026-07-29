@@ -95,6 +95,7 @@ try {
 		by_md5[pkg.md5] = &pkg;
 	}
 
+	bool index_complete = true;
 	const auto rapid_dir = u8ToPath(fileSystem->getSpringDir() + PATH_DELIMITER + "rapid");
 	if (std::filesystem::exists(rapid_dir)) {
 		for (const auto& entry : std::filesystem::recursive_directory_iterator(rapid_dir)) {
@@ -107,15 +108,22 @@ try {
 			const std::size_t rank =
 				rankDomain(pathToU8(entry.path().parent_path().parent_path().filename()));
 
-			CFileSystem::readGzLines(pathToU8(entry.path()), [&](const std::string& line) {
-				const std::vector<std::string> items = tokenizeString(line, ',');
-				if (items.size() >= 4) {
-					if (const auto it = by_md5.find(toLower(items[1])); it != by_md5.end()) {
-						it->second->tags.push_back({items[0], items[3], rank});
+			const bool read =
+				CFileSystem::readGzLines(pathToU8(entry.path()), [&](const std::string& line) {
+					const std::vector<std::string> items = tokenizeString(line, ',');
+					if (items.size() >= 4) {
+						if (const auto it = by_md5.find(toLower(items[1])); it != by_md5.end()) {
+							it->second->tags.push_back({items[0], items[3], rank});
+						}
 					}
-				}
-				return true;
-			});
+					return true;
+				});
+			// Resolving against a cache we only partly read could pick a different package than
+			// the one the caller named, so the whole scan is treated as failed.
+			if (!read) {
+				LOG_ERROR("Could not read %s", pathToU8(entry.path()).c_str());
+				index_complete = false;
+			}
 		}
 	}
 
@@ -127,7 +135,7 @@ try {
 		}
 	}
 
-	return true;
+	return index_complete;
 } catch (const std::filesystem::filesystem_error& ex) {
 	LOG_ERROR("Failed to read installed packages: %s", ex.what());
 	return false;

@@ -940,6 +940,28 @@ class TestDownloading(unittest.TestCase):
 
         self.assertTrue(self.exists_in_dest(archive))
 
+    def test_uninstall_refuses_an_unreadable_versions_cache(self) -> None:
+        repo = self.rapid.add_repo('repo')
+        archive = repo.add_archive('pkg')
+        archive.add_file('a.txt', b'a')
+        self.rapid.save(self.serving_root)
+
+        with self.server.serve():
+            self.assertEqual(self.call_rapid_download('repo:pkg'), 0)
+
+        # A second domain whose cache cannot be read. The name still resolves
+        # from the good domain, but what the bad one would have said is unknown,
+        # so uninstalling has to refuse rather than act on a partial index.
+        self.write_rapid_domain('other.example.com', 'repo', [])
+        corrupt = os.path.join(self.dest_root, 'rapid', 'other.example.com',
+                               'repo', 'versions.gz')
+        with open(corrupt, 'wb') as out:
+            out.write(b'\x1f\x8b' + b'\x00' * 64)
+
+        self.assertNotEqual(self.call_uninstall('repo:pkg'), 0)
+
+        self.assertTrue(self.verify_downloaded_rapid('repo:pkg'))
+
     def test_uninstall_by_name_from_lower_ranked_domain(self) -> None:
         repo = self.rapid.add_repo('repo')
         archive = repo.add_archive('pkg', 'Real Name')
