@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Windows x86_64 build of the pr-downloader CLI, cross compiled from linux with
+# mingw-w64.
+#
+#   docker build -f ci/Dockerfile.windows-x86_64 -t prd-windows .
+#   docker build -f ci/Dockerfile.windows-x86_64 --target artifacts \
+#       --output type=local,dest=dist/windows-x86_64 .
+#
+# Base image and dependency source mirror the engine's own windows build
+# (docker-build-v2/images/amd64-windows in beyond-all-reason/RecoilEngine) so
+# the CLI is built against the same libraries the engine ships.
+FROM ubuntu:24.04 AS toolchain
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+		binutils \
+		ca-certificates \
+		cmake \
+		g++-mingw-w64-x86-64-posix \
+		gcc-mingw-w64-x86-64-posix \
+		git \
+		ninja-build \
+		python3 \
+	&& rm -rf /var/lib/apt/lists/*
+
+RUN git clone --depth=1 https://github.com/beyond-all-reason/mingwlibs64.git /build/mingwlibs64
+ENV MINGWLIBS=/build/mingwlibs64
+
+FROM toolchain AS build
+
+# uid 1000 is taken by the stock "ubuntu" account on this base image.
+RUN useradd -m -u 1001 builder && mkdir -p /build/b /out && chown builder:builder /build/b /out
+
+COPY --chown=builder:builder . /src
+USER builder
+WORKDIR /src
+
+# git_util_describe silently degrades the version string to "tarball" if git
+# refuses to read the checkout.
+RUN git config --global --add safe.directory '*'
+
+RUN SRC_DIR=/src BUILD_DIR=/build/b OUT_DIR=/out sh ci/build-windows.sh
+
+FROM scratch AS artifacts
+COPY --from=build /out/ /

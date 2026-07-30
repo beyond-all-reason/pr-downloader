@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+#
+# Standalone linux x86_64 build of the pr-downloader CLI.
+#
+#   docker build -f ci/Dockerfile.linux-x86_64 -t prd-linux .
+#   docker build -f ci/Dockerfile.linux-x86_64 --target artifacts \
+#       --output type=local,dest=dist/linux-x86_64 .
+#
+# bookworm is the oldest Debian whose libcurl (7.88) satisfies the >=7.84
+# pkg-config check in the top level CMakeLists, and its glibc 2.36 sets the
+# floor for what the resulting binary will run on.
+FROM debian:bookworm-slim AS build
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+		binutils \
+		build-essential \
+		ca-certificates \
+		cmake \
+		git \
+		libcurl4-openssl-dev \
+		ninja-build \
+		pkg-config \
+		python3 \
+		zlib1g-dev \
+	&& rm -rf /var/lib/apt/lists/*
+
+# jsoncpp and minizip are deliberately not installed: without them CMake falls
+# back to the vendored copies, which keeps them out of the shared library list.
+
+# test_io_error_fails_download makes a pool file unreadable with chmod 0 and
+# expects the download to fail, which root would sail straight through.
+RUN useradd -m -u 1000 builder && mkdir -p /build /out && chown builder:builder /build /out
+
+COPY --chown=builder:builder . /src
+USER builder
+WORKDIR /src
+
+# git_util_describe silently degrades the version string to "tarball" if git
+# refuses to read the checkout.
+RUN git config --global --add safe.directory '*'
+
+ARG RUN_FUNCTIONAL_TESTS=1
+RUN SRC_DIR=/src BUILD_DIR=/build OUT_DIR=/out \
+	RUN_FUNCTIONAL_TESTS=${RUN_FUNCTIONAL_TESTS} \
+	sh ci/build-linux.sh
+
+FROM scratch AS artifacts
+COPY --from=build /out/ /
