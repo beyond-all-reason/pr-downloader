@@ -40,7 +40,10 @@ if(UNIX)
 endif()
 if(NOT UNIX OR NOT TARGET prd::libcurl)
     find_package(CURL 7.85 REQUIRED)
-    add_library(prd::libcurl ALIAS CURL::libcurl)
+    # Not an ALIAS: curl's own CMake package makes CURL::libcurl an alias of
+    # CURL::libcurl_static or _shared, and CMake cannot alias an alias.
+    add_library(prd::libcurl INTERFACE IMPORTED)
+    target_link_libraries(prd::libcurl INTERFACE CURL::libcurl)
 endif()
 
 # ZLIB
