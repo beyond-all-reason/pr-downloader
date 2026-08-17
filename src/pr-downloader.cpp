@@ -146,8 +146,8 @@ bool search(std::vector<DownloadSearchItem>& items, std::list<IDownload*>& searc
 				return false;
 		}
 	}
-	return rapidDownload->search(searchres, rapid_search) &&
-	       httpDownload->search(searchres, http_search);
+	return (rapid_search.empty() || rapidDownload->search(searchres, rapid_search)) &&
+	       (http_search.empty() || httpDownload->search(searchres, http_search));
 }
 
 int DownloadSearch(std::vector<DownloadSearchItem>& items)
