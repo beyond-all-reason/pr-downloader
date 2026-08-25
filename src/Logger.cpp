@@ -92,8 +92,8 @@ extern void L_LOG(const char* fileName, int line, const char* funName, L_LEVEL l
 extern void LOG_PROGRESS(int64_t done, int64_t total, bool forceOutput)
 {
 	static std::chrono::steady_clock::time_point lastlogtime;
-	static double lastPercentage = 0.0f;
 	static int64_t lastDone = -1;
+	static int64_t lastTotal = -1;
 
 	if (!logEnabled) {
 		return;
@@ -107,20 +107,15 @@ extern void LOG_PROGRESS(int64_t done, int64_t total, bool forceOutput)
 			return;
 	}
 
+	if (done == lastDone && total == lastTotal)
+		return;
+	lastDone = done;
+	lastTotal = total;
+
 	double percentage = 0;
 	if (total > 0) {
 		percentage = static_cast<double>(done) / static_cast<double>(total);
 	}
-
-	// A transfer with no announced length has a percentage of zero throughout, so
-	// comparing the percentage alone drops every line after the first and the
-	// caller never learns how many bytes arrived. Rapid's streamer.cgi sends no
-	// Content-Length, which is how most rapid games are served. Compare the byte
-	// count too, so an unsized transfer still reports progress.
-	if (percentage == lastPercentage && done == lastDone)
-		return;
-	lastPercentage = percentage;
-	lastDone = done;
 
 	// In case the toal/done are incorrect, put 50%
 	if (percentage < 0 || percentage > 1) {
