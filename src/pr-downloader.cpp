@@ -3,12 +3,14 @@
 #include "Downloader/DownloadEnum.h"
 #include "Downloader/IDownloader.h"
 #include "FileSystem/FileSystem.h"
+#include "FileSystem/RapidStore.h"
 #include "Logger.h"
 #include "Tracer.h"
 #include "Version.h"
 #include "lib/md5/md5.h"
 #include <base64.h>
 
+#include <algorithm>
 #include <assert.h>
 #include <cinttypes>
 #include <cstdint>
@@ -341,6 +343,46 @@ bool DownloadDumpSDP(const char* path)
 bool ValidateSDP(const char* path)
 {
 	return fileSystem->validateSDP(path);
+}
+
+bool UninstallPackages(const std::vector<std::string>& names)
+{
+	CRapidStore store;
+	if (!store.scan()) {
+		return false;
+	}
+
+	std::vector<const InstalledPackage*> to_remove;
+	bool resolved_all = true;
+	for (const std::string& name : names) {
+		std::vector<const InstalledPackage*> matches;
+		switch (store.resolve(name, matches)) {
+			case CRapidStore::Resolution::OK:
+				// two names on the same command line can point at one package
+				if (std::find(to_remove.begin(), to_remove.end(), matches.front()) ==
+				    to_remove.end()) {
+					to_remove.push_back(matches.front());
+				}
+				break;
+			case CRapidStore::Resolution::NOT_FOUND:
+				LOG_ERROR("'%s' is not installed", name.c_str());
+				resolved_all = false;
+				break;
+			case CRapidStore::Resolution::AMBIGUOUS:
+				LOG_ERROR("'%s' matches %d installed packages, uninstall by md5 instead:",
+				          name.c_str(), static_cast<int>(matches.size()));
+				for (const InstalledPackage* pkg : matches) {
+					LOG_ERROR("  %s %s", pkg->md5.c_str(), pkg->name.c_str());
+				}
+				resolved_all = false;
+				break;
+		}
+	}
+	if (!resolved_all) {
+		return false;
+	}
+
+	return store.remove(to_remove);
 }
 
 void DownloadDisableLogging(bool disableLogging)

@@ -9,6 +9,14 @@
 #include <memory>
 #include <zlib.h>
 
+std::string stripRapidUri(std::string_view name)
+{
+	if (name.find("rapid://") == 0) {
+		return std::string(name.substr(8));
+	}
+	return std::string(name);
+}
+
 std::vector<std::string> tokenizeString(const std::string& str, char c)
 {
 	std::vector<std::string> res;

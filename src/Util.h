@@ -8,6 +8,7 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -24,6 +25,11 @@ std::string getUrl(const FileData* info, const std::string& path);
  * empty tokens aren't ignored
  */
 std::vector<std::string> tokenizeString(const std::string& str, char c);
+
+/**
+ * removes the rapid:// scheme so that both rapid://zk:stable and zk:stable name the same package
+ */
+std::string stripRapidUri(std::string_view name);
 
 /**
  * decompresses in to out

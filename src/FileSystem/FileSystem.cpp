@@ -58,6 +58,46 @@ FILE* CFileSystem::propen(const std::string& filename, const std::string& mode)
 	return ret;
 }
 
+bool CFileSystem::readGzLines(const std::string& path,
+                              const std::function<bool(const std::string&)>& handler)
+{
+	FILE* f = propen(path, "rb");
+	if (f == nullptr) {
+		return false;
+	}
+	const int fd = dupFileFD(f);
+	if (fd < 0) {
+		fclose(f);
+		return false;
+	}
+	gzFile fp = gzdopen(fd, "rb");
+	if (fp == Z_NULL) {
+		LOG_ERROR("Could not gzdopen %s", path.c_str());
+		fclose(f);
+		return false;
+	}
+
+	char buf[IO_BUF_SIZE];
+	bool stopped = false;
+	while (!stopped && gzgets(fp, buf, sizeof(buf)) != Z_NULL) {
+		std::string line(buf);
+		while (!line.empty() && (line.back() == '\n' || line.back() == '\r')) {
+			line.pop_back();
+		}
+		stopped = !handler(line);
+	}
+
+	int errnum = Z_OK;
+	const char* errstr = gzerror(fp, &errnum);
+	const bool ok = stopped || errnum == Z_OK || errnum == Z_STREAM_END;
+	if (!ok) {
+		LOG_ERROR("Decompression error in %s: %d %s", path.c_str(), errnum, errstr);
+	}
+	gzclose(fp);
+	fclose(f);
+	return ok;
+}
+
 bool CFileSystem::hashFile(IHash* outHash, const std::string& path) const
 {
 	char data[IO_BUF_SIZE];

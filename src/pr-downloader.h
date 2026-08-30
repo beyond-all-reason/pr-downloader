@@ -100,6 +100,13 @@ extern bool DownloadDumpSDP(const char* path);
 extern bool ValidateSDP(const char* path);
 
 /**
+ * Removes installed rapid packages, named by md5, rapid tag or archive name. Resolves against what
+ * is on disk and never touches the network. A name that matches more than one installed package is
+ * an error, use the md5 to pick one.
+ */
+extern bool UninstallPackages(const std::vector<std::string>& names);
+
+/**
  * control printing to stdout
  */
 extern void DownloadDisableLogging(bool disableLogging);

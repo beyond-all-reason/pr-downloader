@@ -405,9 +405,10 @@ class TestDownloading(unittest.TestCase):
     dest_root: str
     server: TestingHTTPServer
 
-    def call_rapid_download(self,
-                            shortnames: str | list[str],
-                            use_streamer: bool = False) -> int:
+    def call_pr_downloader(self,
+                           args: list[str],
+                           use_streamer: bool = False,
+                           extra_env: dict[str, str] = {}) -> int:
         with tempfile.NamedTemporaryFile(
                 prefix='pr-run-', delete=not self.keep_temp_files) as out:
             if self.keep_temp_files:
@@ -419,26 +420,41 @@ class TestDownloading(unittest.TestCase):
                     'true' if use_streamer else 'false',
             }
             env.update(os.environ)
+            env.update(extra_env)
             if self.coverage_profiles_path is not None:
                 env['LLVM_PROFILE_FILE'] = os.path.join(
                     self.coverage_profiles_path,
                     f'{os.path.basename(out.name)}.profraw')
 
-            if isinstance(shortnames, str):
-                shortnames = [shortnames]
-            dl_args = []
-            for sn in shortnames:
-                dl_args.extend(['--download-game', sn])
-
             res = subprocess.run([
                 self.pr_downloader_path, '--filesystem-writepath',
                 self.dest_root
-            ] + dl_args,
+            ] + args,
                                  stderr=subprocess.STDOUT,
                                  stdout=out,
                                  timeout=10,
                                  env=env)
             return res.returncode
+
+    def call_rapid_download(self,
+                            shortnames: str | list[str],
+                            use_streamer: bool = False) -> int:
+        if isinstance(shortnames, str):
+            shortnames = [shortnames]
+        dl_args = []
+        for sn in shortnames:
+            dl_args.extend(['--download-game', sn])
+        return self.call_pr_downloader(dl_args, use_streamer=use_streamer)
+
+    def call_uninstall(self,
+                       names: str | list[str],
+                       extra_env: dict[str, str] = {}) -> int:
+        if isinstance(names, str):
+            names = [names]
+        args = []
+        for n in names:
+            args.extend(['--uninstall', n])
+        return self.call_pr_downloader(args, extra_env=extra_env)
 
     def verify_downloaded_rapid(self, archive: str | Archive) -> bool:
         if isinstance(archive, str):
@@ -450,6 +466,22 @@ class TestDownloading(unittest.TestCase):
             if not os.path.exists(dest_file) or not rf.is_identical(dest_file):
                 return False
         return True
+
+    def dest_path(self, rf: RapidFile) -> str:
+        return os.path.join(self.dest_root, rf.rapid_filename())
+
+    def exists_in_dest(self, rf: RapidFile) -> bool:
+        return os.path.exists(self.dest_path(rf))
+
+    def write_rapid_domain(self, domain: str, repo: str,
+                           lines: list[str]) -> None:
+        """Adds a versions.gz to the local cache under a made up domain."""
+        path = os.path.join(self.dest_root, 'rapid', domain, repo,
+                            'versions.gz')
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        contents = ''.join(f'{line}\n' for line in lines).encode()
+        with open(path, 'wb') as out:
+            out.write(gzip.compress(contents))
 
     def clear_dest_root(self) -> None:
         for f in os.listdir(self.dest_root):
@@ -814,6 +846,223 @@ class TestDownloading(unittest.TestCase):
         with self.server.serve():
             self.assertEqual(self.call_rapid_download('repo:pkg'), 0)
             self.assertTrue(visited_file)
+
+    def test_uninstall_removes_package_and_its_pool_files(self) -> None:
+        repo = self.rapid.add_repo('repo')
+        archive = repo.add_archive('pkg')
+        a_file = archive.add_file('a.txt', b'a')
+        b_file = archive.add_file('b.txt', b'bb')
+        self.rapid.save(self.serving_root)
+
+        with self.server.serve():
+            self.assertEqual(self.call_rapid_download('repo:pkg'), 0)
+        self.assertTrue(self.verify_downloaded_rapid('repo:pkg'))
+
+        # Every uninstall here runs outside serve(), so the server is down and
+        # resolution has to work off the local install.
+        self.assertEqual(self.call_uninstall('repo:pkg'), 0)
+
+        self.assertFalse(self.exists_in_dest(archive))
+        self.assertFalse(self.exists_in_dest(a_file))
+        self.assertFalse(self.exists_in_dest(b_file))
+
+    def test_uninstall_keeps_pool_files_other_packages_use(self) -> None:
+        repo = self.rapid.add_repo('repo')
+        archive1 = repo.add_archive('pkg:1')
+        shared = archive1.add_file('a.txt', b'a')
+        only_in_1 = archive1.add_file('b.txt', b'bb')
+        archive2 = repo.add_archive('pkg:2')
+        archive2.add_file('a.txt', b'a')
+        self.rapid.save(self.serving_root)
+
+        with self.server.serve():
+            self.assertEqual(
+                self.call_rapid_download(['repo:pkg:1', 'repo:pkg:2']), 0)
+
+        self.assertEqual(self.call_uninstall('repo:pkg:1'), 0)
+
+        self.assertFalse(self.exists_in_dest(archive1))
+        self.assertFalse(self.exists_in_dest(only_in_1))
+        self.assertTrue(self.exists_in_dest(archive2))
+        self.assertTrue(self.exists_in_dest(shared))
+
+    def test_uninstall_accepts_md5_name_and_uri(self) -> None:
+        repo = self.rapid.add_repo('repo')
+        by_md5 = repo.add_archive('pkg:1')
+        by_md5.add_file('a.txt', b'a')
+        by_name = repo.add_archive('pkg:2', 'Package Two')
+        by_name.add_file('b.txt', b'bb')
+        by_uri = repo.add_archive('pkg:3')
+        by_uri.add_file('c.txt', b'ccc')
+        self.rapid.save(self.serving_root)
+
+        with self.server.serve():
+            self.assertEqual(
+                self.call_rapid_download(
+                    ['repo:pkg:1', 'repo:pkg:2', 'repo:pkg:3']), 0)
+
+        self.assertEqual(self.call_uninstall(by_md5.get_md5()), 0)
+        self.assertEqual(self.call_uninstall('Package Two'), 0)
+        self.assertEqual(self.call_uninstall('rapid://repo:pkg:3'), 0)
+
+        self.assertFalse(self.exists_in_dest(by_md5))
+        self.assertFalse(self.exists_in_dest(by_name))
+        self.assertFalse(self.exists_in_dest(by_uri))
+
+    def test_uninstall_unknown_package_fails_and_changes_nothing(self) -> None:
+        repo = self.rapid.add_repo('repo')
+        archive = repo.add_archive('pkg')
+        archive.add_file('a.txt', b'a')
+        self.rapid.save(self.serving_root)
+
+        with self.server.serve():
+            self.assertEqual(self.call_rapid_download('repo:pkg'), 0)
+
+        self.assertNotEqual(self.call_uninstall('repo:nosuchpkg'), 0)
+
+        self.assertTrue(self.verify_downloaded_rapid('repo:pkg'))
+
+    def test_uninstall_empty_name_fails_and_changes_nothing(self) -> None:
+        repo = self.rapid.add_repo('repo')
+        archive = repo.add_archive('pkg')
+        archive.add_file('a.txt', b'a')
+        self.rapid.save(self.serving_root)
+
+        with self.server.serve():
+            self.assertEqual(self.call_rapid_download('repo:pkg'), 0)
+
+        # Without a versions.gz the package has no tags and no name, which must
+        # not turn an empty argument into a match.
+        shutil.rmtree(os.path.join(self.dest_root, 'rapid'))
+
+        self.assertNotEqual(self.call_uninstall(''), 0)
+        self.assertNotEqual(self.call_uninstall('rapid://'), 0)
+
+        self.assertTrue(self.exists_in_dest(archive))
+
+    def test_uninstall_refuses_an_unreadable_versions_cache(self) -> None:
+        repo = self.rapid.add_repo('repo')
+        archive = repo.add_archive('pkg')
+        archive.add_file('a.txt', b'a')
+        self.rapid.save(self.serving_root)
+
+        with self.server.serve():
+            self.assertEqual(self.call_rapid_download('repo:pkg'), 0)
+
+        # A second domain whose cache cannot be read. The name still resolves
+        # from the good domain, but what the bad one would have said is unknown,
+        # so uninstalling has to refuse rather than act on a partial index.
+        self.write_rapid_domain('other.example.com', 'repo', [])
+        corrupt = os.path.join(self.dest_root, 'rapid', 'other.example.com',
+                               'repo', 'versions.gz')
+        with open(corrupt, 'wb') as out:
+            out.write(b'\x1f\x8b' + b'\x00' * 64)
+
+        self.assertNotEqual(self.call_uninstall('repo:pkg'), 0)
+
+        self.assertTrue(self.verify_downloaded_rapid('repo:pkg'))
+
+    def test_uninstall_by_name_from_lower_ranked_domain(self) -> None:
+        repo = self.rapid.add_repo('repo')
+        archive = repo.add_archive('pkg', 'Real Name')
+        archive.add_file('a.txt', b'a')
+        self.rapid.save(self.serving_root)
+
+        with self.server.serve():
+            self.assertEqual(self.call_rapid_download('repo:pkg'), 0)
+
+        # A higher ranked domain lists the same package under another name, the
+        # name the package was installed under still has to resolve.
+        self.write_rapid_domain('other.example.com', 'repo',
+                                [f'repo:other,{archive.get_md5()},,Other Name'])
+
+        self.assertEqual(
+            self.call_uninstall('Real Name',
+                                extra_env={
+                                    'PRD_RAPID_TAG_RESOLUTION_ORDER':
+                                        'other.example.com'
+                                }), 0)
+
+        self.assertFalse(self.exists_in_dest(archive))
+
+    def test_uninstall_tolerates_unreadable_incomplete_sdp(self) -> None:
+        repo = self.rapid.add_repo('repo')
+        archive = repo.add_archive('pkg')
+        pool_file = archive.add_file('a.txt', b'a')
+        self.rapid.save(self.serving_root)
+
+        with self.server.serve():
+            self.assertEqual(self.call_rapid_download('repo:pkg'), 0)
+
+        # What a killed download leaves behind.
+        truncated = os.path.join(self.dest_root, 'packages',
+                                 f'{"f" * 32}.sdp.incomplete')
+        with open(truncated, 'wb') as out:
+            out.write(b'junk')
+
+        self.assertEqual(self.call_uninstall('repo:pkg'), 0)
+
+        self.assertFalse(self.exists_in_dest(archive))
+        self.assertFalse(self.exists_in_dest(pool_file))
+
+    def test_uninstall_ambiguous_name_fails_and_changes_nothing(self) -> None:
+        repo1 = self.rapid.add_repo('repo1')
+        archive1 = repo1.add_archive('pkg', 'Same Name')
+        archive1.add_file('a.txt', b'a')
+        repo2 = self.rapid.add_repo('repo2')
+        archive2 = repo2.add_archive('pkg', 'Same Name')
+        archive2.add_file('b.txt', b'bb')
+        self.rapid.save(self.serving_root)
+
+        with self.server.serve():
+            self.assertEqual(
+                self.call_rapid_download(['repo1:pkg', 'repo2:pkg']), 0)
+
+        self.assertNotEqual(self.call_uninstall('Same Name'), 0)
+
+        self.assertTrue(self.verify_downloaded_rapid('repo1:pkg'))
+        self.assertTrue(self.verify_downloaded_rapid('repo2:pkg'))
+
+    def _base_two_domains_same_tag(self) -> tuple[Archive, Archive]:
+        repo = self.rapid.add_repo('repo')
+        archive1 = repo.add_archive('pkg:1')
+        archive1.add_file('a.txt', b'a')
+        archive2 = repo.add_archive('pkg:2')
+        archive2.add_file('b.txt', b'bb')
+        self.rapid.save(self.serving_root)
+
+        with self.server.serve():
+            self.assertEqual(
+                self.call_rapid_download(['repo:pkg:1', 'repo:pkg:2']), 0)
+
+        # Point a second domain at a different package under the tag that the
+        # real repo uses for archive1.
+        self.write_rapid_domain(
+            'other.example.com', 'repo',
+            [f'repo:pkg:1,{archive2.get_md5()},,Other'])
+
+        return archive1, archive2
+
+    def test_uninstall_tag_prefers_configured_domain(self) -> None:
+        archive1, archive2 = self._base_two_domains_same_tag()
+
+        self.assertEqual(
+            self.call_uninstall('repo:pkg:1',
+                                extra_env={
+                                    'PRD_RAPID_TAG_RESOLUTION_ORDER':
+                                        'other.example.com'
+                                }), 0)
+
+        self.assertTrue(self.exists_in_dest(archive1))
+        self.assertFalse(self.exists_in_dest(archive2))
+
+    def test_uninstall_tag_equal_domain_preference_fails(self) -> None:
+        archive1, archive2 = self._base_two_domains_same_tag()
+
+        self.assertNotEqual(self.call_uninstall('repo:pkg:1'), 0)
+
+        self.assertTrue(self.exists_in_dest(archive1))
+        self.assertTrue(self.exists_in_dest(archive2))
 
     # TODO(marekr): Fix bugs that are being reproduced by the tests below.
 
