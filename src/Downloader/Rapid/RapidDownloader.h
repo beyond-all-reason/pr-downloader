@@ -35,6 +35,11 @@ public:
 
 	bool setOption(const std::string& key, const std::string& value) override;
 
+	/**
+	 * uninstall a package by short name or descriptive name
+	 */
+	bool uninstall(const std::string& name);
+
 	void addRemoteSdp(CSdp&& dsp);
 
 private:

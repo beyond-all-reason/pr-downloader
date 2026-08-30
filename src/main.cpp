@@ -18,7 +18,7 @@ void show_version()
 	LOG("pr-downloader %s (%s)\n", getVersion(), platformToString(PRD_CURRENT_PLATFORM));
 }
 
-const static std::array<std::tuple<std::string, bool, std::string>, 13> opts_array = {{
+const static std::array<std::tuple<std::string, bool, std::string>, 14> opts_array = {{
 	{"help", false, "Print this help message"},
 	{"version", false, "Show version of pr-downloader and quit"},
 	{"filesystem-writepath", true, "Set the directory with data, defaults to current dir"},
@@ -34,6 +34,7 @@ const static std::array<std::tuple<std::string, bool, std::string>, 13> opts_arr
 	{"dump-sdp", true, "Dump contents of Sdp file, takes full path to the Sdp file"},
 	{"disable-logging", false, "Disables logging"},
 	{"disable-fetch-depends", false, "Disables downloading of dependend archives"},
+	{"uninstall", true, "Uninstall a game package by name, eg. 'Beyond All Reason test-16314-fff9e7a' or 'ba:test'"},
 }};
 
 void show_help(const char* cmd)
@@ -140,6 +141,19 @@ try {
 			LOG_ERROR("Validation of the rapid pool failed");
 			return 1;
 		}
+		return 0;
+	}
+
+	if (auto it = args.find("uninstall"); it != args.end()) {
+		DownloadInit();
+		for (const auto& pkg_name : it->second) {
+			if (!UninstallPackage(pkg_name.c_str())) {
+				LOG_ERROR("Failed to uninstall '%s'", pkg_name.c_str());
+				DownloadShutdown();
+				return 1;
+			}
+		}
+		DownloadShutdown();
 		return 0;
 	}
 
