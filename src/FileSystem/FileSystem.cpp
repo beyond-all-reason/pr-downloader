@@ -24,6 +24,7 @@
 #include <string>
 #include <sys/stat.h>
 #include <thread>
+#include <unordered_map>
 #include <zlib.h>
 
 #ifdef _WIN32
@@ -522,6 +523,81 @@ bool CFileSystem::dumpSDP(const std::string& filename)
 		md5.Set(fd.md5, sizeof(fd.md5));
 		LOG_INFO("%s %.8X %8d %s", md5.toString().c_str(), fd.crc32, fd.size, fd.name.c_str());
 	}
+	return true;
+}
+
+bool CFileSystem::listPackages()
+{
+	const std::string springDir = getSpringDir();
+	const std::string packagesDir = springDir + PATH_DELIMITER + "packages";
+	const std::string rapidDir = springDir + PATH_DELIMITER + "rapid";
+
+	std::unordered_map<std::string, std::pair<std::string, std::string>> md5Info;
+
+	if (directoryExists(rapidDir)) {
+		try {
+			for (const auto& entry :
+			     std::filesystem::recursive_directory_iterator(u8ToPath(rapidDir))) {
+				if (!entry.is_regular_file() || entry.path().filename().string() != "versions.gz")
+					continue;
+				FILE* f = propen(pathToU8(entry.path()), "rb");
+				if (!f)
+					continue;
+				int fd = dupFileFD(f);
+				if (fd < 0) {
+					fclose(f);
+					continue;
+				}
+				gzFile gf = gzdopen(fd, "rb");
+				if (gf == Z_NULL) {
+					fclose(f);
+					continue;
+				}
+				char buf[IO_BUF_SIZE];
+				while (gzgets(gf, buf, sizeof(buf)) != Z_NULL) {
+					for (size_t i = 0; i < sizeof(buf) && buf[i]; i++) {
+						if (buf[i] == '\n') {
+							buf[i] = 0;
+							break;
+						}
+					}
+					const auto items = tokenizeString(std::string(buf), ',');
+					if (items.size() >= 4 && !items[1].empty())
+						md5Info[items[1]] = {items[0], items[3]};
+				}
+				gzclose(gf);
+				fclose(f);
+			}
+		} catch (const std::filesystem::filesystem_error&) {
+		}
+	}
+
+	if (!directoryExists(packagesDir)) {
+		LOG_INFO("No packages installed.");
+		return true;
+	}
+
+	try {
+		int count = 0;
+		for (const auto& entry : std::filesystem::directory_iterator(u8ToPath(packagesDir))) {
+			if (!entry.is_regular_file() || entry.path().extension().string() != ".sdp")
+				continue;
+			const std::string md5 = entry.path().stem().string();
+			auto it = md5Info.find(md5);
+			if (it != md5Info.end())
+				LOG_INFO("%s: %s [%s]", it->second.first.c_str(), it->second.second.c_str(),
+				         md5.c_str());
+			else
+				LOG_INFO("<unknown>: [%s]", md5.c_str());
+			++count;
+		}
+		if (count == 0)
+			LOG_INFO("No packages installed.");
+	} catch (const std::filesystem::filesystem_error& ex) {
+		LOG_ERROR("Failed to list packages: %s", ex.what());
+		return false;
+	}
+
 	return true;
 }
 

@@ -343,6 +343,11 @@ bool ValidateSDP(const char* path)
 	return fileSystem->validateSDP(path);
 }
 
+bool DownloadListPackages()
+{
+	return fileSystem->listPackages();
+}
+
 void DownloadDisableLogging(bool disableLogging)
 {
 	LOG_DISABLE(disableLogging);

@@ -100,6 +100,11 @@ extern bool DownloadDumpSDP(const char* path);
 extern bool ValidateSDP(const char* path);
 
 /**
+ * list all installed packages
+ */
+extern bool DownloadListPackages();
+
+/**
  * control printing to stdout
  */
 extern void DownloadDisableLogging(bool disableLogging);
